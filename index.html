@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d3fa8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clinic Bill">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Clinic Bill</title>
+<style>
+/* Layout: one phone column of tap rows grouped by section; a fixed ink-blue bill bar at the bottom always shows the total. */
+:root {
+  --paper: #f5f7fa;
+  --card: #ffffff;
+  --ink: #16202e;
+  --muted: #5b6676;
+  --line: #dde3ec;
+  --pen: #1d3fa8;
+  --pen-soft: #e6ecfb;
+  --pen-ink: #ffffff;
+  --danger: #b4232f;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-num: "Atkinson Hyperlegible Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141c; --card: #171e29; --ink: #e8edf5; --muted: #98a3b4; --line: #283244;
+    --pen: #7d9cf5; --pen-soft: #1d2a4a; --pen-ink: #0b1020; --danger: #f07a83; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141c; --card: #171e29; --ink: #e8edf5; --muted: #98a3b4; --line: #283244;
+  --pen: #7d9cf5; --pen-soft: #1d2a4a; --pen-ink: #0b1020; --danger: #f07a83; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 17px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px 150px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 22px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
+
+header { display: grid; gap: 10px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+.search {
+  width: 100%; padding: 14px 16px; font-size: 18px; border-radius: 12px;
+  border: 2px solid var(--line); background: var(--card);
+}
+.search:focus { border-color: var(--pen); outline: none; }
+
+section { display: grid; gap: 8px; }
+h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  margin: 0; font-weight: 700;
+}
+.list { display: grid; gap: 6px; }
+
+/* Consultation chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-width: 72px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--line);
+  background: var(--card); font-family: var(--font-num); font-size: 18px; font-weight: 700;
+}
+.chip.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
+.chip-input {
+  width: 110px; padding: 14px 12px; border-radius: 12px; border: 2px solid var(--line);
+  background: var(--card); font-family: var(--font-num); font-size: 18px;
+}
+.chip-input.on { border-color: var(--pen); }
+
+/* Item rows */
+.row {
+  display: flex; align-items: center; gap: 8px; background: var(--card);
+  border: 2px solid var(--line); border-radius: 12px; padding: 4px 4px 4px 0;
+}
+.row.on { border-color: var(--pen); background: var(--pen-soft); }
+.row-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  background: none; border: 0; padding: 10px 4px 10px 12px; text-align: left;
+}
+.form {
+  flex: none; width: 34px; text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 0;
+}
+.name { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.name small { display: block; font-weight: 400; color: var(--muted); font-size: 14px; }
+.price { font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--muted); }
+.row.on .price { color: var(--ink); font-weight: 700; }
+.stepper { display: flex; align-items: center; gap: 2px; flex: none; }
+.stepper button {
+  width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--pen);
+  color: var(--pen-ink); font-size: 24px; font-weight: 700; line-height: 1;
+}
+.stepper .qty { min-width: 28px; text-align: center; font-family: var(--font-num); font-weight: 700; }
+
+/* Per-tablet rows */
+.row.tabs { flex-wrap: wrap; padding: 4px 8px 10px 0; }
+.row.tabs .row-main { flex-basis: 100%; cursor: default; }
+.tab-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 12px; }
+.tab-chips .chip { min-width: 0; padding: 10px 12px; font-size: 16px; }
+.tab-chips input { width: 96px; padding: 10px; font-size: 16px; }
+
+.extra { display: flex; gap: 8px; flex-wrap: wrap; }
+.extra input { flex: 1; min-width: 120px; }
+.btn {
+  padding: 14px 18px; border-radius: 12px; border: 0; background: var(--pen);
+  color: var(--pen-ink); font-weight: 700;
+}
+.empty { color: var(--muted); text-align: center; padding: 16px; }
+
+/* Bill bar */
+.bill {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--card); border-top: 2px solid var(--pen);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -6px 20px rgb(0 0 0 / 0.12);
+}
+.bill-inner { max-width: 640px; margin: 0 auto; display: grid; gap: 8px; }
+.bill-top { display: flex; align-items: center; gap: 10px; }
+.total { flex: 1; min-width: 0; }
+.total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.total-num {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 40px;
+  font-weight: 700; line-height: 1.05; color: var(--pen);
+}
+.ghost {
+  padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-weight: 700;
+}
+.lines { display: grid; gap: 4px; max-height: 40vh; overflow-y: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+.line { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.line .ln { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.line .la { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700; }
+.line button { border: 0; background: none; color: var(--danger); font-size: 22px; width: 36px; height: 32px; }
+.toast { font-size: 15px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.toast button { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .total-num.bump { animation: bump .25s ease-out; }
+  @keyframes bump { from { transform: scale(1.08); } to { transform: scale(1); } }
+}
+</style>
+<style>:root { padding-top: env(safe-area-inset-top, 0px); }</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Clinic Bill</h1>
+    <input id="search" class="search" type="search" placeholder="Search medicine… (e.g. monte, esopep)" autocomplete="off">
+  </header>
+
+  <section id="consult-sec">
+    <h2>Consultation</h2>
+    <div class="chips" id="consult"></div>
+  </section>
+
+  <div id="sections"></div>
+  <p class="empty" id="nomatch" hidden>No medicine matches that search. Add it below as an extra amount.</p>
+
+  <section id="extra-sec">
+    <h2>Anything else (new injection, other item)</h2>
+    <div class="extra">
+      <input id="extra-amt" class="chip-input" type="number" inputmode="numeric" placeholder="Amount">
+      <button class="btn" id="extra-add" type="button">Add to bill</button>
+    </div>
+  </section>
+</div>
+
+<div class="bill">
+  <div class="bill-inner">
+    <div class="lines" id="lines" hidden></div>
+    <div class="toast" id="toast" hidden><span>Bill cleared.</span><button type="button" id="undo">Undo</button></div>
+    <div class="bill-top">
+      <div class="total">
+        <div class="total-label">Total to write</div>
+        <div class="total-num" id="total">0</div>
+      </div>
+      <button class="ghost" id="toggle" type="button">Items (0)</button>
+      <button class="btn" id="clear" type="button">New patient</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Rates as given by the doctor. perTab items charge by tablets dispensed.
+const SECTIONS = [
+  { title: "Procedures", items: [
+    { id: "drip", f: "Drip", name: "Drip", note: "Morphy + DC + Viobion", price: 850 },
+    { id: "inj", f: "Inj", name: "Injection (general)", note: "Any injection not listed below", price: 150 },
+    { id: "neb", f: "Neb", name: "Nebulization", price: 200 },
+    { id: "dress", f: "Dr", name: "Dressing", price: 200 },
+  ]},
+  { title: "Injections", items: [
+    { id: "i-vyber", f: "Inj", name: "Vyber", price: 490 },
+    { id: "i-esopep", f: "Inj", name: "Esopep", price: 450 },
+    { id: "i-rapid", f: "Inj", name: "Rapid", price: 400 },
+    { id: "i-calcif", f: "Inj", name: "Calciferol", price: 200 },
+  ]},
+  { title: "Tablets", items: [
+    { id: "t-axal", f: "T", name: "Axal 0.5mg", perTab: { pack: 238, size: 30, quick: [10, 15, 30] } },
+    { id: "t-montekarl", f: "T", name: "Montekarl", perTab: { pack: 498, size: 14, quick: [7, 14] } },
+    { id: "t-recad", f: "T", name: "Reca D", perTab: { pack: 750, size: 30, quick: [10, 20, 30] } },
+    { id: "t-airflow", f: "T", name: "Airflow", price: 360 },
+    { id: "t-aptizole", f: "T", name: "Aptizole", price: 295 },
+    { id: "t-artilide", f: "T", name: "Artilide", price: 180 },
+    { id: "t-bactcid", f: "T", name: "Bactcid", price: 242 },
+    { id: "t-bonehealth", f: "T", name: "Bonehealth", price: 525 },
+    { id: "t-cox2", f: "T", name: "Cox2", price: 270 },
+    { id: "t-crn", f: "T", name: "CRN", price: 439 },
+    { id: "t-cyrocin", f: "T", name: "Cyrocin", price: 230 },
+    { id: "t-ferifer", f: "T", name: "Ferifer F", price: 126 },
+    { id: "t-gpep", f: "T", name: "Gpep", price: 180 },
+    { id: "t-iroton", f: "T", name: "Iroton F", price: 128 },
+    { id: "t-lebix", f: "T", name: "Lebix", price: 213 },
+    { id: "t-loxat", f: "T", name: "Loxat", price: 364 },
+    { id: "t-m20", f: "T", name: "M20", price: 190 },
+    { id: "t-montit", f: "T", name: "Montit", price: 400 },
+    { id: "t-voxiquij", f: "T", name: "Voxiquij", price: 246 },
+    { id: "t-zolard", f: "T", name: "Zolard", price: 352 },
+  ]},
+  { title: "Capsules", items: [
+    { id: "c-esopep20", f: "C", name: "Esopep 20mg", price: 70 },
+    { id: "c-esopep40", f: "C", name: "Esopep 40mg", price: 380 },
+    { id: "c-fungicure", f: "C", name: "Fungicure", price: 220 },
+    { id: "c-mobicam", f: "C", name: "Mobicam", price: 280 },
+    { id: "c-protole", f: "C", name: "Protole", price: 270 },
+    { id: "c-rapid", f: "C", name: "Rapid", price: 280 },
+    { id: "c-xi", f: "C", name: "Xi", price: 250 },
+  ]},
+  { title: "Syrups", items: [
+    { id: "s-cefod", f: "S", name: "Cef OD DS", price: 385 },
+    { id: "s-citral", f: "S", name: "Citral", price: 121 },
+    { id: "s-com", f: "S", name: "COM", price: 49 },
+    { id: "s-cyrocin", f: "S", name: "Cyrocin", price: 314 },
+    { id: "s-doncid", f: "S", name: "Doncid", price: 280 },
+    { id: "s-feromalt", f: "S", name: "Feromalt", price: 250 },
+    { id: "s-fevotal", f: "S", name: "Fevotal 6 Plus", price: 89 },
+    { id: "s-fmd", f: "S", name: "FMD", price: 100 },
+    { id: "s-ict", f: "S", name: "ICT", price: 170 },
+    { id: "s-iroton", f: "S", name: "Iroton", price: 139 },
+    { id: "s-mdl", f: "S", name: "MDL", price: 215 },
+    { id: "s-navophen", f: "S", name: "Navophen", price: 95 },
+    { id: "s-nsf", f: "S", name: "NSF", price: 160 },
+    { id: "s-nst60", f: "S", name: "NST60", price: 55 },
+    { id: "s-recad", f: "S", name: "Reca D", price: 240 },
+    { id: "s-s100", f: "S", name: "S100", price: 100 },
+    { id: "s-torax", f: "S", name: "Torax", price: 160 },
+    { id: "s-zysen", f: "S", name: "Zysen", price: 290 },
+  ]},
+  { title: "Other", items: [
+    { id: "o-cranberry", f: "Sac", name: "Cranberry sachet", price: 350 },
+  ]},
+];
+const CONSULT = [0, 300, 400, 500];
+
+const ITEMS = {};
+SECTIONS.forEach(s => s.items.forEach(it => { ITEMS[it.id] = it; }));
+
+let state = { qty: {}, consult: null, extras: [] };
+let lastCleared = null;
+
+const lineAmount = (it, q) => it.perTab ? Math.round(it.perTab.pack / it.perTab.size * q) : it.price * q;
+const fmt = n => n.toLocaleString("en-US");
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+// ---- Build consultation ----
+const consultBox = document.getElementById("consult");
+CONSULT.forEach(v => {
+  const b = el("button", "chip", v === 0 ? "Free" : String(v));
+  b.type = "button"; b.dataset.v = v;
+  b.addEventListener("click", () => {
+    state.consult = state.consult === v ? null : v;
+    customConsult.value = "";
+    update();
+  });
+  consultBox.append(b);
+});
+const customConsult = el("input", "chip-input");
+customConsult.id = "consult-other"; customConsult.type = "number"; customConsult.inputMode = "numeric"; customConsult.placeholder = "Other";
+customConsult.addEventListener("input", () => {
+  const v = parseInt(customConsult.value, 10);
+  state.consult = Number.isFinite(v) && v >= 0 ? v : null;
+  update();
+});
+consultBox.append(customConsult);
+
+// ---- Build item rows ----
+const sectionsBox = document.getElementById("sections");
+const rows = {};
+SECTIONS.forEach(sec => {
+  const s = el("section"); s.append(el("h2", null, sec.title));
+  const list = el("div", "list");
+  sec.items.forEach(it => {
+    const row = el("div", "row" + (it.perTab ? " tabs" : ""));
+    const main = el("button", "row-main"); main.type = "button";
+    main.append(el("span", "form", it.f));
+    const name = el("span", "name", it.name);
+    if (it.note || it.perTab) name.append(el("small", null, it.perTab ? `${it.perTab.pack} for ${it.perTab.size} tabs` : it.note));
+    main.append(name);
+    const price = el("span", "price", it.perTab ? "" : String(it.price));
+    main.append(price);
+    row.append(main);
+    const r = { row, price, it };
+
+    if (it.perTab) {
+      main.tabIndex = -1;
+      const chips = el("div", "tab-chips");
+      r.chips = it.perTab.quick.map(q => {
+        const c = el("button", "chip", `${q} tabs`); c.type = "button";
+        c.addEventListener("click", () => { setQty(it.id, state.qty[it.id] === q ? 0 : q); r.input.value = ""; });
+        chips.append(c); return { q, c };
+      });
+      r.input = el("input", "chip-input"); r.input.id = "tabs-" + it.id;
+      r.input.type = "number"; r.input.inputMode = "numeric"; r.input.placeholder = "tabs";
+      r.input.addEventListener("input", () => { const v = parseInt(r.input.value, 10); setQty(it.id, Number.isFinite(v) && v > 0 ? v : 0); });
+      chips.append(r.input);
+      row.append(chips);
+    } else {
+      main.addEventListener("click", () => setQty(it.id, (state.qty[it.id] || 0) + 1));
+      const st = el("div", "stepper"); st.hidden = true;
+      const minus = el("button", null, "−"); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + it.name);
+      const qty = el("span", "qty", "0");
+      const plus = el("button", null, "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add one " + it.name);
+      minus.addEventListener("click", () => setQty(it.id, (state.qty[it.id] || 0) - 1));
+      plus.addEventListener("click", () => setQty(it.id, (state.qty[it.id] || 0) + 1));
+      st.append(minus, qty, plus); row.append(st);
+      r.stepper = st; r.qtyEl = qty;
+    }
+    rows[it.id] = r; r.section = s;
+    list.append(row);
+  });
+  s.append(list); sectionsBox.append(s);
+});
+
+function setQty(id, q) {
+  if (q > 0) state.qty[id] = q; else delete state.qty[id];
+  update();
+}
+
+// ---- Extras ----
+const extraAmt = document.getElementById("extra-amt");
+function addExtra() {
+  const v = parseInt(extraAmt.value, 10);
+  if (!Number.isFinite(v) || v <= 0) { extraAmt.focus(); return; }
+  state.extras.push(v); extraAmt.value = ""; update();
+}
+document.getElementById("extra-add").addEventListener("click", addExtra);
+extraAmt.addEventListener("keydown", e => { if (e.key === "Enter") addExtra(); });
+
+// ---- Search ----
+const search = document.getElementById("search");
+search.addEventListener("input", () => {
+  const q = search.value.trim().toLowerCase();
+  let any = false;
+  const visibleBySec = new Map();
+  Object.values(rows).forEach(r => {
+    const show = !q || r.it.name.toLowerCase().includes(q) || (r.it.note || "").toLowerCase().includes(q);
+    r.row.hidden = !show;
+    if (show) { any = true; visibleBySec.set(r.section, true); }
+  });
+  Object.values(rows).forEach(r => { r.section.hidden = !visibleBySec.get(r.section); });
+  document.getElementById("consult-sec").hidden = !!q;
+  document.getElementById("nomatch").hidden = any;
+});
+
+// ---- Bill ----
+const totalEl = document.getElementById("total");
+const linesEl = document.getElementById("lines");
+const toggleBtn = document.getElementById("toggle");
+let showLines = false;
+toggleBtn.addEventListener("click", () => { showLines = !showLines; update(); });
+
+function billLines() {
+  const out = [];
+  if (state.consult != null) out.push({ name: "Consultation", amt: state.consult, remove: () => { state.consult = null; customConsult.value = ""; } });
+  Object.entries(state.qty).forEach(([id, q]) => {
+    const it = ITEMS[id];
+    const label = it.perTab ? `${it.name} × ${q} tabs` : (q > 1 ? `${it.name} × ${q}` : it.name);
+    out.push({ name: (it.f.length <= 2 && it.f !== "Dr" ? it.f + " " : "") + label, amt: lineAmount(it, q),
+      remove: () => { delete state.qty[id]; if (rows[id].input) rows[id].input.value = ""; } });
+  });
+  state.extras.forEach((v, i) => out.push({ name: "Extra", amt: v, remove: () => state.extras.splice(i, 1) }));
+  return out;
+}
+
+let prevTotal = 0;
+function update() {
+  // consultation chips
+  consultBox.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", state.consult === Number(b.dataset.v) && customConsult.value === ""));
+  customConsult.classList.toggle("on", customConsult.value !== "" && state.consult != null);
+  // rows
+  Object.values(rows).forEach(r => {
+    const q = state.qty[r.it.id] || 0;
+    r.row.classList.toggle("on", q > 0);
+    if (r.it.perTab) {
+      r.chips.forEach(({ q: cq, c }) => c.classList.toggle("on", q === cq && r.input.value === ""));
+      r.price.textContent = q ? fmt(lineAmount(r.it, q)) : "";
+    } else {
+      r.stepper.hidden = q === 0;
+      r.qtyEl.textContent = q;
+      r.price.textContent = q > 1 ? fmt(lineAmount(r.it, q)) : String(r.it.price);
+    }
+  });
+  // bill
+  const lines = billLines();
+  const total = lines.reduce((s, l) => s + l.amt, 0);
+  totalEl.textContent = fmt(total);
+  if (total !== prevTotal) { totalEl.classList.remove("bump"); void totalEl.offsetWidth; totalEl.classList.add("bump"); prevTotal = total; }
+  toggleBtn.textContent = showLines ? "Hide" : `Items (${lines.length})`;
+  linesEl.hidden = !showLines || lines.length === 0;
+  linesEl.replaceChildren(...lines.map(l => {
+    const d = el("div", "line");
+    d.append(el("span", "ln", l.name), el("span", "la", fmt(l.amt)));
+    const x = el("button", null, "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + l.name);
+    x.addEventListener("click", () => { l.remove(); update(); });
+    d.append(x); return d;
+  }));
+}
+
+// ---- New patient + undo ----
+const toast = document.getElementById("toast");
+let toastTimer;
+document.getElementById("clear").addEventListener("click", () => {
+  if (billLines().length === 0) return;
+  lastCleared = JSON.parse(JSON.stringify(state));
+  state = { qty: {}, consult: null, extras: [] };
+  customConsult.value = "";
+  Object.values(rows).forEach(r => { if (r.input) r.input.value = ""; });
+  search.value = ""; search.dispatchEvent(new Event("input"));
+  showLines = false;
+  update();
+  window.scrollTo({ top: 0 });
+  toast.hidden = false; clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; lastCleared = null; }, 6000);
+});
+document.getElementById("undo").addEventListener("click", () => {
+  if (!lastCleared) return;
+  state = lastCleared; lastCleared = null; toast.hidden = true;
+  if (state.consult != null && !CONSULT.includes(state.consult)) customConsult.value = state.consult;
+  Object.entries(state.qty).forEach(([id, q]) => { const r = rows[id]; if (r.input && !r.it.perTab.quick.includes(q)) r.input.value = q; });
+  update();
+});
+
+update();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+
+</body>
+</html>
