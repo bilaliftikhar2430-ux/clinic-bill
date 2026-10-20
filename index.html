@@ -11,9 +11,8 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Clinic Bill</title>
-<style id="page-style"></style>
 <style>
-/* Layout: one screen. Final amount pinned at top; fee, procedures and discount as one-tap rows; medicine tiles below; picked items + Print pinned at bottom. */
+/* Layout: bill only. Final amount + code pinned at top; fee, procedures, discount as one-tap rows; most-used medicines first; picked items pinned at bottom. */
 :root {
   --paper: #eef2f7;
   --card: #ffffff;
@@ -24,21 +23,19 @@
   --pen-soft: #dde6fb;
   --pen-ink: #ffffff;
   --save: #0f7a4a;
-  --save-soft: #dcf3e7;
   --danger: #b4232f;
   --font-body: "Atkinson Hyperlegible", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
   --font-num: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-urdu: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Geeza Pro", serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #0d121a; --card: #18202c; --ink: #edf1f7; --muted: #9aa5b6; --line: #2a3446;
-    --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --save-soft: #163a2a; --danger: #f07a83; color-scheme: dark;
+    --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --danger: #f07a83; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0d121a; --card: #18202c; --ink: #edf1f7; --muted: #9aa5b6; --line: #2a3446;
-  --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --save-soft: #163a2a; --danger: #f07a83; color-scheme: dark;
+  --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --danger: #f07a83; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -47,14 +44,13 @@ body {
   margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px;
   padding-left: max(10px, env(safe-area-inset-left, 0px));
   padding-right: max(10px, env(safe-area-inset-right, 0px));
-  padding-block: 0 150px;
+  padding-block: 0 80px;
 }
-button, input, select { font: inherit; color: inherit; }
+button, input { font: inherit; color: inherit; }
 button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
 .wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 12px; }
 
-/* Top bar */
 .top {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--paper);
   padding-block: 8px 6px; border-bottom: 2px solid var(--line); display: grid; gap: 2px;
@@ -65,9 +61,9 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
   font-family: var(--font-num); font-weight: 700; font-size: 18px; line-height: 1.1; text-align: center;
 }
 .opd small { display: block; font-family: var(--font-body); font-size: 11px; color: var(--muted); letter-spacing: .06em; }
-.total { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
-.total-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 42px; font-weight: 700; line-height: 1; color: var(--pen); }
-.code-pill { flex: none; font-family: var(--font-num); font-weight: 700; font-size: 16px; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 8px; }
+.total { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; text-align: left; }
+.total-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 44px; font-weight: 700; line-height: 1; color: var(--pen); }
+.code-pill { flex: none; font-family: var(--font-num); font-weight: 700; font-size: 17px; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 9px; }
 .new { padding: 13px 13px; border-radius: 14px; border: 0; background: var(--pen); color: var(--pen-ink); font-weight: 700; font-size: 16px; white-space: nowrap; }
 .disc-line { font-size: 15px; color: var(--save); font-weight: 700; font-family: var(--font-num); }
 .undo { font-size: 15px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
@@ -91,17 +87,20 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
   display: grid; place-items: center; pointer-events: none;
 }
 
-/* Medicines */
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .tile { position: relative; min-width: 0; }
 .tile-main {
-  width: 100%; height: 100%; min-height: 64px; display: flex; flex-direction: column; justify-content: center;
+  width: 100%; height: 100%; min-height: 62px; display: flex; flex-direction: column; justify-content: center;
   gap: 2px; padding: 8px 8px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); text-align: left;
 }
 .tile-name { font-weight: 700; font-size: 17px; line-height: 1.15; overflow-wrap: break-word; letter-spacing: -0.01em; }
-.tile-sub { font-family: var(--font-num); font-size: 13px; color: var(--muted); line-height: 1.2; }
+.tile-sub { font-family: var(--font-num); font-size: 13px; color: var(--muted); }
 .tile.on .tile-main { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
 .tile.on .tile-sub { color: var(--pen-ink); }
+.minus {
+  position: absolute; bottom: 4px; right: 4px; width: 34px; height: 34px; border-radius: 10px; border: 0;
+  background: var(--card); color: var(--pen); font-size: 24px; font-weight: 700; line-height: 1;
+}
 .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--line); padding: 4px; border-radius: 14px; }
 .tab { padding: 11px 2px; border: 0; border-radius: 10px; background: none; font-weight: 700; font-size: 16px; color: var(--muted); }
 .tab.on { background: var(--card); color: var(--ink); }
@@ -109,9 +108,8 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .search { width: 100%; padding: 13px 46px 13px 14px; font-size: 18px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); }
 .search:focus { border-color: var(--pen); outline: none; }
 .search-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: none; font-size: 24px; color: var(--muted); }
-.add-custom { width: 100%; padding: 14px; border-radius: 12px; border: 2px dashed var(--pen); background: var(--pen-soft); color: var(--pen); font-weight: 700; }
+.empty { color: var(--muted); font-size: 15px; margin: 0; }
 
-/* Bottom: picked items + print */
 .bottom {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card);
   border-top: 2px solid var(--pen); box-shadow: 0 -6px 20px rgb(0 0 0 / 0.12);
@@ -119,65 +117,33 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
   padding-right: max(10px, env(safe-area-inset-right, 0px));
   padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
-.bottom-inner { max-width: 640px; margin: 0 auto; display: grid; gap: 8px; }
-.picked { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.picked { max-width: 640px; margin: 0 auto; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .picked::-webkit-scrollbar { display: none; }
-.pick { flex: none; white-space: nowrap; display: flex; align-items: center; border-radius: 10px; background: var(--pen-soft); font-size: 15px; font-weight: 700; }
-.pick .pk-main { border: 0; background: none; padding: 7px 4px 7px 10px; display: flex; gap: 6px; align-items: center; }
+.pick { flex: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; padding: 6px 2px 6px 10px; border-radius: 10px; background: var(--pen-soft); font-size: 15px; font-weight: 700; }
 .pick .amt { font-family: var(--font-num); }
-.pick .pk-x { border: 0; background: none; color: var(--danger); font-size: 22px; width: 34px; height: 34px; line-height: 1; }
-.pick.rx { background: var(--save-soft); }
-.hint { color: var(--muted); font-size: 15px; padding: 6px 0; white-space: nowrap; }
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.actions button { padding: 13px; border-radius: 12px; font-weight: 700; font-size: 17px; border: 0; background: var(--ink); color: var(--paper); }
-.actions .alt { background: var(--card); color: var(--ink); border: 2px solid var(--line); }
+.pick button { border: 0; background: none; color: var(--danger); font-size: 22px; width: 34px; height: 34px; line-height: 1; }
+.hint { color: var(--muted); font-size: 15px; padding: 7px 0; white-space: nowrap; }
 
-/* Sheets */
 .scrim { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / 0.45); display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
-  width: 100%; max-width: 640px; background: var(--card); border-radius: 20px 20px 0 0; max-height: 92vh; overflow-y: auto;
+  width: 100%; max-width: 640px; background: var(--card); border-radius: 20px 20px 0 0;
   padding: 16px max(14px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px));
   display: grid; gap: 12px;
 }
 .sheet h3 { margin: 0; font-size: 22px; }
 .sheet p { margin: 0; color: var(--muted); font-size: 15px; }
-.sheet-head { display: flex; align-items: center; gap: 8px; }
-.sheet-head h3 { flex: 1; min-width: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.mini { padding: 11px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); font-size: 17px; font-weight: 700; }
-.mini.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
-.ur { font-family: var(--font-urdu); direction: rtl; text-align: right; color: var(--muted); font-size: 17px; line-height: 2; }
-.field { width: 100%; padding: 13px 14px; font-size: 18px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); }
-.field:focus { border-color: var(--pen); outline: none; }
-.fields { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+.quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.quick button { padding: 16px 4px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-weight: 700; font-family: var(--font-num); font-size: 18px; }
+.quick button small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
 .amount-in { width: 100%; padding: 16px; font-size: 26px; font-family: var(--font-num); border-radius: 14px; border: 2px solid var(--pen); background: var(--card); }
 .two { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
-.three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .big { padding: 15px 8px; border-radius: 14px; border: 0; background: var(--pen); color: var(--pen-ink); font-weight: 700; font-size: 17px; }
 .ghost { padding: 15px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); font-weight: 700; }
-.danger { color: var(--danger); }
-.linkish { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 6px 0; font-size: 16px; justify-self: start; }
-label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-weight: 700; }
-.set-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.preview-img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-.toast {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(130px + env(safe-area-inset-bottom, 0px)); z-index: 8;
-  background: var(--ink); color: var(--paper); padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 700; max-width: 92vw;
-}
 @media (prefers-reduced-motion: no-preference) {
   .total-num.bump { animation: bump .25s ease-out; }
   @keyframes bump { from { transform: scale(1.1); } to { transform: scale(1); } }
 }
 @media (max-width: 360px) { .grid { grid-template-columns: repeat(2, 1fr); } .total-num { font-size: 34px; } .btn { font-size: 14px; } }
-
-/* Print */
-#print-area { display: none; }
-@media print {
-  body { background: #fff !important; color: #000 !important; padding: 0 !important; margin: 0 !important; }
-  body > *:not(#print-area) { display: none !important; }
-  #print-area { display: block !important; color: #000; font-family: Arial, Helvetica, sans-serif; }
-  #print-area .p-ur { font-family: var(--font-urdu); direction: rtl; text-align: right; }
-}
 </style>
 
 <style>:root { padding-top: env(safe-area-inset-top, 0px); }</style>
@@ -187,58 +153,44 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
   <header class="top">
     <div class="top-row">
       <button class="opd" id="opd" type="button" aria-label="Patient number"><small>NO.</small><span id="opd-num">1</span></button>
-      <div class="total">
+      <button class="total" id="total-btn" type="button" aria-label="Type final amount">
         <span class="total-num" id="total">0</span>
         <span class="code-pill" id="code-pill" hidden></span>
-      </div>
+      </button>
       <button class="new" id="clear" type="button">New patient</button>
     </div>
     <div class="disc-line" id="disc-line" hidden></div>
     <div class="undo" id="undo-bar" hidden><span>Cleared.</span><button type="button" id="undo">Undo</button></div>
   </header>
 
-  <section>
-    <div class="lbl">Fee</div>
-    <div class="row5" id="fee"></div>
-  </section>
-  <section>
-    <div class="lbl">Procedures</div>
-    <div class="row5" id="procs"></div>
-  </section>
-  <section>
-    <div class="lbl">Discount %</div>
-    <div class="row5 disc" id="disc"></div>
-  </section>
+  <section><div class="lbl">Fee</div><div class="row5" id="fee"></div></section>
+  <section><div class="lbl">Procedures</div><div class="row5" id="procs"></div></section>
+  <section><div class="lbl">Discount %</div><div class="row5 disc" id="disc"></div></section>
+
   <section style="display:grid;gap:7px">
-    <div class="lbl" style="margin:0">Medicines</div>
+    <div class="lbl" style="margin:0">Most used</div>
+    <div class="grid" id="top-meds"></div>
+    <p class="empty" id="top-empty">Medicines you use most will show here by themselves.</p>
+  </section>
+
+  <section style="display:grid;gap:7px">
+    <div class="lbl" style="margin:0">All medicines</div>
     <div class="search-box">
       <input id="search" class="search" type="search" placeholder="Type to find… (mon, eso)" autocomplete="off">
       <button class="search-x" id="search-x" type="button" aria-label="Clear search" hidden>×</button>
     </div>
-    <button class="add-custom" id="add-custom" type="button" hidden></button>
     <div class="tabs" id="tabs" role="tablist"></div>
     <div class="grid" id="meds"></div>
   </section>
 </div>
 
-<div class="bottom">
-  <div class="bottom-inner">
-    <div class="picked" id="picked"></div>
-    <div class="actions">
-      <button type="button" id="btn-print">Print / Share</button>
-      <button type="button" class="alt" id="btn-amount">Type amount</button>
-    </div>
-  </div>
-</div>
+<div class="bottom"><div class="picked" id="picked"></div></div>
 
-<div class="toast" id="toast" hidden></div>
-
-<!-- Number sheet -->
 <div class="scrim" id="num" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="num-title">
     <h3 id="num-title"></h3>
     <p id="num-note"></p>
-    <div class="three" id="num-quick"></div>
+    <div class="quick" id="num-quick"></div>
     <input id="num-in" class="amount-in" type="number" inputmode="numeric" placeholder="Type number">
     <div class="two">
       <button class="ghost" id="num-cancel" type="button">Cancel</button>
@@ -246,77 +198,6 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
     </div>
   </div>
 </div>
-
-<!-- Medicine dose sheet -->
-<div class="scrim" id="dose" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dose-title">
-    <div class="sheet-head"><h3 id="dose-title"></h3><button class="big" id="dose-done" type="button">Done</button></div>
-    <div class="chips" id="dose-form"></div>
-    <div class="chips" id="dose-dose"></div>
-    <div class="chips" id="dose-days"></div>
-    <div class="chips" id="dose-food"></div>
-    <div class="ur" id="dose-ur"></div>
-    <div class="chips" id="dose-given"></div>
-    <button class="linkish danger" id="dose-remove" type="button">Remove this medicine</button>
-  </div>
-</div>
-
-<!-- Print sheet -->
-<div class="scrim" id="print" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="print-title">
-    <div class="sheet-head"><h3 id="print-title">Print / Share</h3><button class="ghost" id="print-close" type="button">Close</button></div>
-    <p>All optional. Leave empty and print straight away.</p>
-    <div class="fields">
-      <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off">
-      <input id="p-age" class="field" type="text" inputmode="numeric" placeholder="Age" autocomplete="off">
-    </div>
-    <div class="chips" id="complaint-chips"></div>
-    <input id="p-complaint" class="field" type="text" placeholder="Complaint" autocomplete="off">
-    <div class="lbl" style="margin:0">Follow-up</div>
-    <div class="chips" id="follow-chips"></div>
-    <div class="lbl" style="margin:0">Advice</div>
-    <div class="chips" id="advice-chips"></div>
-    <div class="three">
-      <button class="big" id="print-pad" type="button">Pad</button>
-      <button class="big" id="print-receipt" type="button">Receipt</button>
-      <button class="big" id="share-img" type="button">Picture</button>
-    </div>
-    <button class="linkish" id="open-settings" type="button">Print settings</button>
-  </div>
-</div>
-
-<!-- Print settings -->
-<div class="scrim" id="settings" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div class="sheet-head"><h3 id="settings-title">Print settings</h3><button class="big" id="settings-close" type="button">Done</button></div>
-    <p>Receipt printer and picture: printed at the top.</p>
-    <label class="set">Clinic name<input id="s-clinic" class="field" type="text"></label>
-    <label class="set">Doctor name and degree<input id="s-doctor" class="field" type="text"></label>
-    <label class="set">Receipt paper width
-      <select id="s-width" class="field"><option value="58">58 mm (small)</option><option value="80">80 mm (wide)</option></select>
-    </label>
-    <p>Prescription pad: blank space to leave so text lands below your printed header (in mm).</p>
-    <div class="set-grid">
-      <label class="set">Top<input id="s-top" class="field" type="number" inputmode="numeric"></label>
-      <label class="set">Left<input id="s-left" class="field" type="number" inputmode="numeric"></label>
-      <label class="set">Right<input id="s-right" class="field" type="number" inputmode="numeric"></label>
-    </div>
-    <label class="set">Pad size
-      <select id="s-pad" class="field"><option value="A5">A5 (half A4)</option><option value="A4">A4</option></select>
-    </label>
-  </div>
-</div>
-
-<!-- Picture fallback -->
-<div class="scrim" id="img-view" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="img-title">
-    <div class="sheet-head"><h3 id="img-title">Prescription picture</h3><button class="big" id="img-close" type="button">Done</button></div>
-    <p>Press and hold the picture to save or share it.</p>
-    <img id="img-out" class="preview-img" alt="Prescription picture">
-  </div>
-</div>
-
-<div id="print-area"></div>
 
 <script>
 // ===== Rates (as given by the doctor). perTab items are charged by tablets dispensed. =====
@@ -392,48 +273,14 @@ const TABS = [
     { id: "o-cranberry", name: "Cranberry sachet", price: 350, f: "Sac" },
   ]},
 ];
+const TOP_COUNT = 9;
 
-// ===== Prescription vocabulary =====
-const FORM_LABEL = { T: "Tab", C: "Cap", S: "Syp", Inj: "Inj", Sac: "Sachet" };
-const DOSES = {
-  pill: [
-    { k: "1xOD", ur: "دن میں ایک بار", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ایک", n: 2 },
-    { k: "1xTDS", ur: "دن میں تین بار", n: 3 }, { k: "1xHS", ur: "رات سوتے وقت", n: 1 },
-    { k: "½xBD", ur: "آدھی صبح، آدھی شام", n: 1 }, { k: "SOS", ur: "ضرورت کے وقت", n: 0 },
-  ],
-  S: [
-    { k: "½ tsf TDS", ur: "آدھا چمچ دن میں تین بار" }, { k: "1 tsf BD", ur: "ایک چمچ صبح، شام" },
-    { k: "1 tsf TDS", ur: "ایک چمچ دن میں تین بار" }, { k: "2 tsf TDS", ur: "دو چمچ دن میں تین بار" },
-    { k: "1 tsf HS", ur: "ایک چمچ رات سوتے وقت" }, { k: "SOS", ur: "ضرورت کے وقت" },
-  ],
-  Inj: [ { k: "Stat", ur: "ابھی ایک ٹیکہ" }, { k: "IM", ur: "پٹھے میں ٹیکہ" }, { k: "IV", ur: "رگ میں ٹیکہ" }, { k: "OD", ur: "روزانہ ایک ٹیکہ" } ],
-  Sac: [ { k: "1xOD", ur: "دن میں ایک ساشے پانی میں", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ساشے پانی میں", n: 2 } ],
-};
-const doseKind = f => (f === "T" || f === "C") ? "pill" : (DOSES[f] ? f : "pill");
-const DAYS = [3, 5, 7, 10, 15, 30];
-const FOOD = [ { k: "before", en: "before meal", ur: "کھانے سے پہلے", label: "Before meal" }, { k: "after", en: "after meal", ur: "کھانے کے بعد", label: "After meal" } ];
-const COMPLAINTS = ["Fever", "Cough", "Flu", "Sore throat", "Body ache", "Headache", "Stomach pain", "Diarrhea", "Vomiting", "BP", "Sugar", "Allergy"];
-const ADVICE = [
-  { k: "water", en: "Drink plenty of water", ur: "پانی زیادہ پئیں" },
-  { k: "rest", en: "Take rest", ur: "آرام کریں" },
-  { k: "oily", en: "Avoid oily & spicy food", ur: "تلی ہوئی اور مرچ والی چیزوں سے پرہیز کریں" },
-  { k: "cold", en: "Avoid cold drinks", ur: "ٹھنڈی چیزوں سے پرہیز کریں" },
-  { k: "steam", en: "Steam inhalation", ur: "بھاپ لیں" },
-  { k: "salt", en: "Less salt", ur: "نمک کم کھائیں" },
-];
-const FOLLOW = [ { d: 3, label: "3 days" }, { d: 5, label: "5 days" }, { d: 7, label: "1 week" }, { d: 14, label: "2 weeks" }, { d: 30, label: "1 month" } ];
-
-// ===== Helpers =====
 const ITEMS = {};
-PROCS.forEach(it => { ITEMS[it.id] = it; });
 TABS.forEach(t => t.items.forEach(it => { if (it.f == null) it.f = t.key; it.tab = t.key; ITEMS[it.id] = it; }));
 const lineAmount = (it, q) => it.perTab ? Math.round(it.perTab.pack / it.perTab.size * q) : it.price * q;
 const fmt = n => n.toLocaleString("en-US");
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const urNum = n => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
 const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
-const fmtDate = d => String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
 const store = {
   get(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
@@ -447,34 +294,26 @@ function billCode(amount) {
 }
 
 // ===== State =====
-const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], name: "", age: "", complaint: "", follow: null, advice: [] });
-let draft = store.get("cb-draft2", null);
+const blank = () => ({ fee: null, qty: {}, meds: {}, extras: [], disc: 0, override: null });
+let draft = store.get("cb-bill3", null);
 let S = draft && draft.day === todayKey() ? Object.assign(blank(), draft.s) : blank();
 let opd = store.get("cb-opd", null);
 if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
-let settings = Object.assign({ clinic: "", doctor: "", width: "58", top: 45, left: 12, right: 12, pad: "A5" }, store.get("cb-settings", {}));
-let memory = store.get("cb-dose-memory", {});
+let usage = store.get("cb-usage", {});       // medicine id -> times used
+let lastTabs = store.get("cb-lasttabs", {});  // per-tablet medicine id -> last tablet count
 let activeTab = store.get("cb-tab", "T");
 if (!TABS.some(t => t.key === activeTab)) activeTab = "T";
-let lastCleared = null, uidSeq = Date.now();
-const save = () => { store.set("cb-draft2", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
+let lastCleared = null;
+const save = () => { store.set("cb-bill3", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
 
-// ===== Toast =====
-const toastEl = document.getElementById("toast"); let toastT;
-function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 1800); }
-
-// ===== Sheets (generic) =====
-const sheets = document.querySelectorAll(".scrim");
-sheets.forEach(s => s.addEventListener("click", e => { if (e.target === s) { s.hidden = true; if (s.id === "dose") doseClose(); } }));
-document.addEventListener("keydown", e => { if (e.key === "Escape") sheets.forEach(s => { if (!s.hidden) { s.hidden = true; if (s.id === "dose") doseClose(); } }); });
-
+// ===== Number sheet =====
 const numSheet = document.getElementById("num"), numIn = document.getElementById("num-in");
 let numDone = null;
 function askNumber({ title, note, quick = [], value, onPick }) {
   document.getElementById("num-title").textContent = title;
   const n = document.getElementById("num-note"); n.textContent = note || ""; n.hidden = !note;
   const q = document.getElementById("num-quick");
-  q.replaceChildren(...quick.map(o => { const b = el("button", "mini", o.label); b.type = "button"; b.addEventListener("click", () => { onPick(o.value); numSheet.hidden = true; }); return b; }));
+  q.replaceChildren(...quick.map(o => { const b = el("button", null, o.label); b.type = "button"; if (o.sub) b.append(el("small", null, o.sub)); b.addEventListener("click", () => { onPick(o.value); numSheet.hidden = true; }); return b; }));
   q.hidden = quick.length === 0;
   numIn.value = value != null ? value : ""; numDone = onPick; numSheet.hidden = false;
   if (!quick.length) setTimeout(() => numIn.focus(), 50);
@@ -483,6 +322,7 @@ function numSubmit() { const v = parseInt(numIn.value, 10); if (!Number.isFinite
 document.getElementById("num-ok").addEventListener("click", numSubmit);
 document.getElementById("num-cancel").addEventListener("click", () => { numSheet.hidden = true; });
 numIn.addEventListener("keydown", e => { if (e.key === "Enter") numSubmit(); });
+numSheet.addEventListener("click", e => { if (e.target === numSheet) numSheet.hidden = true; });
 
 // ===== Fee / procedures / discount =====
 const feeBox = document.getElementById("fee");
@@ -514,120 +354,77 @@ const discBtns = DISCOUNTS.map(d => {
   discBox.append(b); return { d, b };
 });
 
-// ===== Medicines =====
-function medLines(m) {
-  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
-  const food = FOOD.find(x => x.k === m.food);
-  const label = (FORM_LABEL[m.f] ? FORM_LABEL[m.f] + " " : "") + m.name;
-  const en = [label, m.dose || "", m.days ? `× ${m.days} days` : "", food ? `(${food.en})` : ""].filter(Boolean).join("  ");
-  const ur = [d ? d.ur : "", m.days ? `${urNum(m.days)} دن` : "", food ? food.ur : ""].filter(Boolean).join("، ");
-  return { label, en, ur };
+// ===== Medicines: one tap adds =====
+function addMed(it) {
+  if (it.perTab) {
+    if (S.meds[it.id]) {
+      // already added: let them change the tablet count
+      const per = it.perTab.pack / it.perTab.size;
+      askNumber({ title: it.name + ": how many tablets?", quick: it.perTab.quick.map(q => ({ label: `${q} tabs`, sub: "Rs " + fmt(Math.round(per * q)), value: q })),
+        value: S.meds[it.id], onPick: v => { setMed(it.id, v); if (v > 0) { lastTabs[it.id] = v; store.set("cb-lasttabs", lastTabs); } } });
+      return;
+    }
+    setMed(it.id, lastTabs[it.id] || it.perTab.quick[0]);
+  } else setMed(it.id, (S.meds[it.id] || 0) + 1);
+  usage[it.id] = (usage[it.id] || 0) + 1; store.set("cb-usage", usage);
 }
-function medQty(m) {
-  const it = ITEMS[m.id]; if (!it || !it.perTab) return 1;
-  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
-  if (d && d.n && m.days) return d.n * m.days;
-  return it.perTab.quick[0];
-}
-const priced = m => !!(m.id && ITEMS[m.id] && (ITEMS[m.id].price != null || ITEMS[m.id].perTab));
-const memKey = m => m.id || ("x:" + m.name.toLowerCase());
-const shortDose = m => [m.dose, m.days ? m.days + "d" : ""].filter(Boolean).join(" ");
+function setMed(id, q) { if (q > 0) S.meds[id] = q; else delete S.meds[id]; update(); }
 
-function addMed(it, customName) {
-  const existing = it && S.meds.find(m => m.id === it.id);
-  if (existing) { openDose(existing); return; }
-  const m = it ? { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true }
-               : { uid: uidSeq++, id: null, name: customName, f: "T", dose: null, days: null, food: null, given: false };
-  const mem = memory[memKey(m)];
-  S.meds.push(m);
-  if (mem) { Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food, f: mem.f || m.f }); update(); toast(`${m.name} ${shortDose(m)} added`); }
-  else { update(); openDose(m, true); }
-}
-
-// Dose sheet
-const doseSheet = document.getElementById("dose");
-let doseMed = null;
-function chipRow(box, options, current, onPick, labelOf) {
-  box.replaceChildren(...options.map(o => {
-    const key = typeof o === "object" ? o.k : o;
-    const b = el("button", "mini" + (current === key ? " on" : ""), labelOf ? labelOf(o) : String(key)); b.type = "button";
-    b.addEventListener("click", () => onPick(current === key ? null : key));
-    return b;
-  }));
-}
-function renderDose() {
-  const m = doseMed; if (!m) return;
-  document.getElementById("dose-title").textContent = medLines(m).label;
-  const set = (k, v) => { m[k] = v; renderDose(); update(); };
-  const formBox = document.getElementById("dose-form");
-  formBox.hidden = !!m.id;
-  if (!m.id) chipRow(formBox, ["T", "C", "S", "Inj"], m.f, v => set("f", v || "T"), k => FORM_LABEL[k]);
-  chipRow(document.getElementById("dose-dose"), DOSES[doseKind(m.f)], m.dose, v => set("dose", v), o => o.k);
-  const noDays = m.f === "Inj";
-  document.getElementById("dose-days").hidden = noDays; document.getElementById("dose-food").hidden = noDays;
-  if (!noDays) {
-    chipRow(document.getElementById("dose-days"), DAYS, m.days, v => set("days", v), d => d + " days");
-    chipRow(document.getElementById("dose-food"), FOOD, m.food, v => set("food", v), o => o.label);
-  }
-  document.getElementById("dose-ur").textContent = medLines(m).ur;
-  const g = document.getElementById("dose-given");
-  g.hidden = !priced(m);
-  if (priced(m)) {
-    const it = ITEMS[m.id], q = medQty(m);
-    chipRow(g, [{ k: true, l: `Given · Rs ${fmt(lineAmount(it, q))}${it.perTab ? ` (${q} tabs)` : ""}` }, { k: false, l: "Not given (no charge)" }], m.given, v => set("given", v === null ? m.given : v), o => o.l);
-  }
-}
-function openDose(m) { doseMed = m; renderDose(); doseSheet.hidden = false; }
-function doseClose() {
-  const m = doseMed; doseMed = null;
-  if (m && S.meds.includes(m) && (m.dose || m.days)) { memory[memKey(m)] = { dose: m.dose, days: m.days, food: m.food, f: m.id ? undefined : m.f }; store.set("cb-dose-memory", memory); }
-  doseSheet.hidden = true; update();
-}
-document.getElementById("dose-done").addEventListener("click", doseClose);
-document.getElementById("dose-remove").addEventListener("click", () => { S.meds = S.meds.filter(o => o !== doseMed); doseMed = null; doseSheet.hidden = true; update(); });
-
-// Medicine tiles
-const medTiles = {};
-const medsBox = document.getElementById("meds");
-TABS.forEach(t => t.items.forEach(it => {
+const tileSets = [];
+function makeTile(it) {
   const tile = el("div", "tile");
   const b = el("button", "tile-main"); b.type = "button";
   const sub = el("span", "tile-sub");
   b.append(el("span", "tile-name", it.name), sub);
   b.addEventListener("click", () => addMed(it));
-  const badge = el("span", "badge", "✓"); badge.hidden = true;
-  tile.append(b, badge); medsBox.append(tile);
-  medTiles[it.id] = { tile, sub, badge, it };
-}));
+  const badge = el("span", "badge"); badge.hidden = true;
+  const minus = el("button", "minus", "−"); minus.type = "button"; minus.hidden = true; minus.setAttribute("aria-label", "Remove one " + it.name);
+  minus.addEventListener("click", () => setMed(it.id, it.perTab ? 0 : (S.meds[it.id] || 0) - 1));
+  tile.append(b, badge, minus);
+  const t = { tile, sub, badge, minus, it }; tileSets.push(t); return t;
+}
+const medsBox = document.getElementById("meds"), allTiles = {};
+TABS.forEach(t => t.items.forEach(it => { const x = makeTile(it); allTiles[it.id] = x; medsBox.append(x.tile); }));
+
+const topBox = document.getElementById("top-meds"), topEmpty = document.getElementById("top-empty");
+const topTiles = {};
+function renderTop() {
+  // most-used order is fixed while a patient is being billed, so tiles don't jump under the finger
+  const ids = Object.keys(usage).filter(id => ITEMS[id]).sort((a, b) => usage[b] - usage[a]).slice(0, TOP_COUNT);
+  topEmpty.hidden = ids.length > 0;
+  topBox.replaceChildren(...ids.map(id => { if (!topTiles[id]) topTiles[id] = makeTile(ITEMS[id]); return topTiles[id].tile; }));
+}
+
 const tabsBox = document.getElementById("tabs");
 const tabBtns = TABS.map(t => {
   const b = el("button", "tab", t.title); b.type = "button"; b.setAttribute("role", "tab");
   b.addEventListener("click", () => { activeTab = t.key; store.set("cb-tab", t.key); showMeds(); });
   tabsBox.append(b); return { key: t.key, b };
 });
-const search = document.getElementById("search"), searchX = document.getElementById("search-x"), addCustom = document.getElementById("add-custom");
+const search = document.getElementById("search"), searchX = document.getElementById("search-x");
 function showMeds() {
-  const raw = search.value.trim(), q = raw.toLowerCase().replace(/\s/g, "");
+  const q = search.value.trim().toLowerCase().replace(/\s/g, "");
   searchX.hidden = !q; tabsBox.hidden = !!q;
-  Object.values(medTiles).forEach(({ tile, it }) => { tile.hidden = q ? !it.name.toLowerCase().replace(/\s/g, "").includes(q) : it.tab !== activeTab; });
+  Object.values(allTiles).forEach(({ tile, it }) => { tile.hidden = q ? !it.name.toLowerCase().replace(/\s/g, "").includes(q) : it.tab !== activeTab; });
   tabBtns.forEach(({ key, b }) => { b.classList.toggle("on", key === activeTab); b.setAttribute("aria-selected", key === activeTab); });
-  addCustom.hidden = !q; addCustom.textContent = `+ Add “${raw}” (not in list)`;
 }
 search.addEventListener("input", showMeds);
 searchX.addEventListener("click", () => { search.value = ""; showMeds(); search.focus(); });
-addCustom.addEventListener("click", () => { const n = search.value.trim(); if (!n) return; search.value = ""; showMeds(); addMed(null, n.charAt(0).toUpperCase() + n.slice(1)); });
 
 // ===== Totals =====
 function billLines() {
   const out = [];
   if (S.fee != null) out.push({ name: S.fee === 0 ? "Fee free" : "Fee", amt: S.fee, remove: () => { S.fee = null; } });
   PROCS.forEach(p => { const q = S.qty[p.id]; if (q) out.push({ name: p.name + (q > 1 ? ` ×${q}` : ""), amt: p.price * q, remove: () => { if (--S.qty[p.id] <= 0) delete S.qty[p.id]; } }); });
+  Object.entries(S.meds).forEach(([id, q]) => {
+    const it = ITEMS[id]; if (!it) return;
+    out.push({ name: it.name + (it.perTab ? ` ${q}tab` : q > 1 ? ` ×${q}` : ""), amt: lineAmount(it, q), remove: () => { if (it.perTab || --S.meds[id] <= 0) delete S.meds[id]; } });
+  });
   S.extras.forEach((v, i) => out.push({ name: "Other", amt: v, remove: () => S.extras.splice(i, 1) }));
   return out;
 }
-function medBillAmount(m) { return priced(m) && m.given ? lineAmount(ITEMS[m.id], medQty(m)) : 0; }
 function totals() {
-  const gross = billLines().reduce((s, l) => s + l.amt, 0) + S.meds.reduce((s, m) => s + medBillAmount(m), 0);
+  const gross = billLines().reduce((s, l) => s + l.amt, 0);
   const off = Math.round(gross * S.disc / 100);
   const net = S.override != null ? S.override : Math.round((gross - off) / 10) * 10;
   return { gross, off, net };
@@ -635,22 +432,22 @@ function totals() {
 
 const totalEl = document.getElementById("total"), codePill = document.getElementById("code-pill");
 const discLine = document.getElementById("disc-line"), pickedEl = document.getElementById("picked");
-const opdNum = document.getElementById("opd-num");
 let prevNet = 0;
 function update() {
-  opdNum.textContent = opd.n;
+  document.getElementById("opd-num").textContent = opd.n;
   feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
   const custom = S.fee != null && !FEES.includes(S.fee);
-  feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
+  feeOther.classList.toggle("on", custom); feeOther.textContent = custom ? String(S.fee) : "Other";
   PROCS.forEach(p => { const q = S.qty[p.id] || 0, r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
   otherBtn.classList.toggle("on", S.extras.length > 0); otherBadge.hidden = S.extras.length < 2; otherBadge.textContent = "×" + S.extras.length;
   discBtns.forEach(({ d, b }) => b.classList.toggle("on", S.disc === d && d > 0));
 
-  Object.values(medTiles).forEach(({ tile, sub, badge, it }) => {
-    const m = S.meds.find(x => x.id === it.id);
-    tile.classList.toggle("on", !!m); badge.hidden = !m;
-    const mem = memory[it.id];
-    sub.textContent = m ? (shortDose(m) || "tap to set dose") : (mem ? shortDose(mem) : (it.perTab ? `${it.perTab.pack}/${it.perTab.size}` : String(it.price)));
+  tileSets.forEach(({ tile, sub, badge, minus, it }) => {
+    const q = S.meds[it.id] || 0;
+    tile.classList.toggle("on", q > 0); minus.hidden = q === 0;
+    badge.hidden = q === 0 || (!it.perTab && q === 1); badge.textContent = it.perTab ? q : "×" + q;
+    sub.textContent = it.perTab ? (q ? `${q} tabs · ${fmt(lineAmount(it, q))}` : `${lastTabs[it.id] || it.perTab.quick[0]} tabs · ${fmt(lineAmount(it, lastTabs[it.id] || it.perTab.quick[0]))}`)
+                                : (q > 1 ? fmt(lineAmount(it, q)) : String(it.price));
   });
 
   const { gross, off, net } = totals();
@@ -661,30 +458,23 @@ function update() {
   else if (S.disc > 0 && gross > 0) { discLine.hidden = false; discLine.textContent = `${fmt(gross)} − ${S.disc}% (${fmt(off)}) = you get ${fmt(net)}`; }
   else discLine.hidden = true;
 
-  const chips = billLines().map(l => ({ cls: "pick", name: l.name, amt: l.amt, onTap: null, remove: l.remove }));
-  S.meds.forEach(m => chips.push({ cls: "pick rx", name: `${m.name}${shortDose(m) ? " " + shortDose(m) : " ?"}`, amt: medBillAmount(m) || null,
-    onTap: () => openDose(m), remove: () => { S.meds = S.meds.filter(o => o !== m); } }));
-  if (!chips.length) pickedEl.replaceChildren(el("span", "hint", "Tap fee, injection or medicine. Total shows at the top."));
-  else pickedEl.replaceChildren(...chips.map(c => {
-    const d = el("span", c.cls);
-    const main = el("button", "pk-main"); main.type = "button";
-    main.append(el("span", null, c.name)); if (c.amt) main.append(el("span", "amt", fmt(c.amt)));
-    if (c.onTap) main.addEventListener("click", c.onTap); else main.tabIndex = -1;
-    const x = el("button", "pk-x", "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + c.name);
-    x.addEventListener("click", () => { c.remove(); update(); });
-    d.append(main, x); return d;
+  const lines = billLines();
+  if (!lines.length) pickedEl.replaceChildren(el("span", "hint", "Tap fee, injection or medicine. Tap the total to type your own."));
+  else pickedEl.replaceChildren(...lines.map(l => {
+    const d = el("span", "pick");
+    d.append(el("span", null, l.name), el("span", "amt", fmt(l.amt)));
+    const x = el("button", null, "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + l.name);
+    x.addEventListener("click", () => { l.remove(); update(); });
+    d.append(x); return d;
   }));
   pickedEl.scrollLeft = pickedEl.scrollWidth;
   save();
 }
 
-// ===== Type final amount =====
-document.getElementById("btn-amount").addEventListener("click", () => {
-  const { net } = totals();
-  askNumber({ title: "Final amount to charge", note: "Use this to set your own amount. Tap a discount to go back.", value: net || "", onPick: v => { S.override = v; update(); } });
+// Tap the total to type your own final amount
+document.getElementById("total-btn").addEventListener("click", () => {
+  askNumber({ title: "Final amount to charge", note: "Tap a discount to go back to the worked-out amount.", value: totals().net || "", onPick: v => { S.override = v; update(); } });
 });
-
-// ===== OPD number =====
 document.getElementById("opd").addEventListener("click", () => askNumber({
   title: "Patient number", note: "Goes up by 1 on each New patient. Starts at 1 every day.", value: opd.n,
   onPick: v => { if (v > 0) { opd.n = v; update(); } },
@@ -692,169 +482,18 @@ document.getElementById("opd").addEventListener("click", () => askNumber({
 
 // ===== New patient + undo =====
 const undoBar = document.getElementById("undo-bar"); let undoT;
-const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.complaint;
 document.getElementById("clear").addEventListener("click", () => {
-  if (!hasContent()) return;
+  if (!billLines().length && S.override == null) return;
   lastCleared = JSON.parse(JSON.stringify({ S, n: opd.n }));
   S = blank(); opd.n += 1;
-  search.value = ""; showMeds(); update(); window.scrollTo({ top: 0 });
+  search.value = ""; showMeds(); renderTop(); update(); window.scrollTo({ top: 0 });
   undoBar.hidden = false; clearTimeout(undoT); undoT = setTimeout(() => { undoBar.hidden = true; lastCleared = null; }, 8000);
 });
 document.getElementById("undo").addEventListener("click", () => {
   if (!lastCleared) return; S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; update();
 });
 
-// ===== Print sheet =====
-const printSheet = document.getElementById("print");
-const pName = document.getElementById("p-name"), pAge = document.getElementById("p-age"), pComplaint = document.getElementById("p-complaint");
-pName.addEventListener("input", () => { S.name = pName.value; save(); });
-pAge.addEventListener("input", () => { S.age = pAge.value; save(); });
-pComplaint.addEventListener("input", () => { S.complaint = pComplaint.value; save(); renderPrintChips(); });
-function renderPrintChips() {
-  const parts = S.complaint.split(",").map(s => s.trim()).filter(Boolean);
-  const lower = parts.map(s => s.toLowerCase());
-  const cc = document.getElementById("complaint-chips");
-  cc.replaceChildren(...COMPLAINTS.map(c => {
-    const b = el("button", "mini" + (lower.includes(c.toLowerCase()) ? " on" : ""), c); b.type = "button";
-    b.addEventListener("click", () => {
-      const p = lower.includes(c.toLowerCase()) ? parts.filter(s => s.toLowerCase() !== c.toLowerCase()) : parts.concat(c);
-      S.complaint = p.join(", "); pComplaint.value = S.complaint; save(); renderPrintChips();
-    });
-    return b;
-  }));
-  chipRow(document.getElementById("follow-chips"), FOLLOW.map(f => ({ k: f.d, label: f.label })), S.follow, v => { S.follow = v; save(); renderPrintChips(); }, o => o.label);
-  const ac = document.getElementById("advice-chips");
-  ac.replaceChildren(...ADVICE.map(a => {
-    const b = el("button", "mini" + (S.advice.includes(a.k) ? " on" : ""), a.en); b.type = "button";
-    b.addEventListener("click", () => { S.advice = S.advice.includes(a.k) ? S.advice.filter(k => k !== a.k) : S.advice.concat(a.k); save(); renderPrintChips(); });
-    return b;
-  }));
-}
-document.getElementById("btn-print").addEventListener("click", () => {
-  pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaint; renderPrintChips(); printSheet.hidden = false;
-});
-document.getElementById("print-close").addEventListener("click", () => { printSheet.hidden = true; });
-
-// ===== Settings =====
-const settingsSheet = document.getElementById("settings");
-const sIds = { clinic: "s-clinic", doctor: "s-doctor", width: "s-width", top: "s-top", left: "s-left", right: "s-right", pad: "s-pad" };
-Object.entries(sIds).forEach(([k, id]) => {
-  const inp = document.getElementById(id); inp.value = settings[k];
-  inp.addEventListener("input", () => { settings[k] = ["top", "left", "right"].includes(k) ? (parseFloat(inp.value) || 0) : inp.value; store.set("cb-settings", settings); });
-});
-document.getElementById("open-settings").addEventListener("click", () => { settingsSheet.hidden = false; });
-document.getElementById("settings-close").addEventListener("click", () => { settingsSheet.hidden = true; });
-
-// ===== Printable prescription =====
-function rxDoc() {
-  const { net } = totals();
-  const follow = S.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + S.follow); return d; })() : null;
-  return {
-    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim(), complaint: S.complaint.trim(),
-    meds: S.meds.map(medLines),
-    procs: PROCS.filter(p => S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
-    advice: ADVICE.filter(a => S.advice.includes(a.k)),
-    follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(S.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
-    code: net > 0 ? billCode(net) : "",
-  };
-}
-function docHtml(doc, mode) {
-  const receipt = mode === "receipt";
-  const fs = receipt ? (settings.width === "80" ? 11 : 9) : 12;
-  const head = receipt && (settings.clinic || settings.doctor)
-    ? `<div style="text-align:center;border-bottom:0.3mm solid #000;padding-bottom:1.5mm;margin-bottom:2mm">
-         ${settings.clinic ? `<div style="font-weight:700;font-size:${fs + 3}pt">${esc(settings.clinic)}</div>` : ""}
-         ${settings.doctor ? `<div style="font-size:${fs}pt">${esc(settings.doctor)}</div>` : ""}</div>` : "";
-  const top = `<div style="display:flex;justify-content:space-between;gap:3mm;font-size:${fs}pt">
-      <span><b>${esc(doc.name)}</b>${doc.age ? ` &nbsp;Age: ${esc(doc.age)}` : ""}</span>
-      <span style="white-space:nowrap">No. <b>${doc.no}</b> &nbsp;${doc.date}</span></div>`;
-  const complaint = doc.complaint ? `<div style="font-size:${fs}pt;margin-top:2mm">C/O: ${esc(doc.complaint)}</div>` : "";
-  const meds = doc.meds.length ? `<div style="font-size:${fs + 4}pt;font-weight:700;margin-top:3mm">Rx</div>` + doc.meds.map((m, i) => `
-      <div style="margin-top:2mm;break-inside:avoid">
-        <div style="font-size:${fs + 1}pt;font-weight:700">${i + 1}. ${esc(m.en)}</div>
-        ${m.ur ? `<div class="p-ur" style="font-size:${fs + 1}pt;line-height:1.9">${esc(m.ur)}</div>` : ""}
-      </div>`).join("") : "";
-  const procs = doc.procs.length ? `<div style="margin-top:2mm;font-size:${fs}pt">Given: ${esc(doc.procs.join(", "))}</div>` : "";
-  const advice = doc.advice.length ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>Advice:</b>` + doc.advice.map(a => `
-      <div>• ${esc(a.en)}<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div></div>`).join("") + `</div>` : "";
-  const follow = doc.follow ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>${esc(doc.follow.en)}</b><div class="p-ur" style="line-height:1.9">${esc(doc.follow.ur)}</div></div>` : "";
-  const code = doc.code ? `<span style="display:inline-block;border:0.25mm solid #000;border-radius:50%;padding:0.4mm 1.3mm;font-size:6.5pt;line-height:1.2">${esc(doc.code)}</span>` : "";
-  const body = top + complaint + meds + procs + advice + follow;
-  if (receipt) {
-    const w = settings.width === "80" ? 80 : 58;
-    return `<div style="width:${w - 4}mm;padding:2mm">${head}${body}<div style="text-align:right;margin-top:3mm">${code}</div><div style="height:8mm"></div></div>`;
-  }
-  return `<div style="padding:${settings.top}mm ${settings.right}mm 14mm ${settings.left}mm">${body}</div>
-    ${code ? `<div style="position:fixed;bottom:8mm;right:${settings.right}mm">${code}</div>` : ""}`;
-}
-function doPrint(mode) {
-  document.getElementById("print-area").innerHTML = docHtml(rxDoc(), mode);
-  document.getElementById("page-style").textContent = mode === "receipt"
-    ? `@page { size: ${settings.width === "80" ? 80 : 58}mm auto; margin: 0; }` : `@page { size: ${settings.pad}; margin: 0; }`;
-  try { window.print(); } catch (e) {}
-}
-document.getElementById("print-pad").addEventListener("click", () => doPrint("pad"));
-document.getElementById("print-receipt").addEventListener("click", () => doPrint("receipt"));
-
-// ===== Picture (WhatsApp or a printer app) =====
-function drawPicture(doc) {
-  const W = settings.width === "80" ? 576 : 384, pad = 16, base = settings.width === "80" ? 24 : 18;
-  const urFont = `"Noto Nastaliq Urdu", "Geeza Pro", "Jameel Noori Nastaleeq", serif`, latin = `Arial, Helvetica, sans-serif`;
-  const B = [];
-  if (settings.clinic) B.push({ t: settings.clinic, s: base + 6, b: true, a: "center" });
-  if (settings.doctor) B.push({ t: settings.doctor, s: base - 2, a: "center" });
-  if (settings.clinic || settings.doctor) B.push({ rule: true });
-  B.push({ t: `No. ${doc.no}    ${doc.date}`, s: base - 2 });
-  if (doc.name || doc.age) B.push({ t: `${doc.name}${doc.age ? "   Age: " + doc.age : ""}`, s: base, b: true });
-  if (doc.complaint) B.push({ t: "C/O: " + doc.complaint, s: base - 1 });
-  if (doc.meds.length) B.push({ t: "Rx", s: base + 6, b: true, gap: 8 });
-  doc.meds.forEach((m, i) => { B.push({ t: `${i + 1}. ${m.en}`, s: base, b: true, gap: 6 }); if (m.ur) B.push({ t: m.ur, s: base, ur: true }); });
-  if (doc.procs.length) B.push({ t: "Given: " + doc.procs.join(", "), s: base - 1, gap: 6 });
-  if (doc.advice.length) { B.push({ t: "Advice:", s: base - 1, b: true, gap: 8 }); doc.advice.forEach(a => { B.push({ t: "• " + a.en, s: base - 1 }); B.push({ t: a.ur, s: base - 1, ur: true }); }); }
-  if (doc.follow) { B.push({ t: doc.follow.en, s: base - 1, b: true, gap: 8 }); B.push({ t: doc.follow.ur, s: base - 1, ur: true }); }
-  const c = document.createElement("canvas"), ctx = c.getContext("2d");
-  const fontOf = bl => `${bl.b ? "700 " : ""}${bl.s}px ${bl.ur ? urFont : latin}`;
-  const wrap = bl => {
-    ctx.font = fontOf(bl);
-    const words = String(bl.t).split(" "), out = []; let line = "";
-    words.forEach(w => { const test = line ? line + " " + w : w; if (ctx.measureText(test).width > W - pad * 2 && line) { out.push(line); line = w; } else line = test; });
-    if (line) out.push(line); return out;
-  };
-  let h = pad;
-  const laid = B.map(bl => { if (bl.rule) { h += 10; return bl; } const lines = wrap(bl), lh = bl.s * (bl.ur ? 2.0 : 1.35); h += (bl.gap || 0) + lines.length * lh; return Object.assign({ lines, lh }, bl); });
-  c.width = W; c.height = Math.ceil(h + 50);
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, c.height); ctx.fillStyle = "#000"; ctx.textBaseline = "top";
-  let y = pad;
-  laid.forEach(bl => {
-    if (bl.rule) { ctx.fillRect(pad, y + 4, W - pad * 2, 2); y += 10; return; }
-    y += bl.gap || 0; ctx.font = fontOf(bl);
-    bl.lines.forEach(line => {
-      if (bl.ur) { ctx.direction = "rtl"; ctx.textAlign = "right"; ctx.fillText(line, W - pad, y + bl.s * 0.3); ctx.direction = "ltr"; }
-      else { ctx.textAlign = bl.a === "center" ? "center" : "left"; ctx.fillText(line, bl.a === "center" ? W / 2 : pad, y); }
-      y += bl.lh;
-    });
-  });
-  if (doc.code) {
-    ctx.font = `${Math.round(base * 0.6)}px ${latin}`; ctx.textAlign = "center";
-    const tw = ctx.measureText(doc.code).width, cx = W - pad - tw / 2 - 6, cy = y + 22;
-    ctx.beginPath(); ctx.ellipse(cx, cy, tw / 2 + 6, base * 0.5, 0, 0, Math.PI * 2); ctx.lineWidth = 1; ctx.stroke();
-    ctx.textBaseline = "middle"; ctx.fillText(doc.code, cx, cy);
-  }
-  return c;
-}
-document.getElementById("share-img").addEventListener("click", () => {
-  const doc = rxDoc(), url = drawPicture(doc).toDataURL("image/png");
-  const bin = atob(url.split(",")[1]), arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  const file = new File([arr], `prescription-${doc.no}.png`, { type: "image/png" });
-  const showImg = () => { document.getElementById("img-out").src = url; document.getElementById("img-view").hidden = false; };
-  if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(err => { if (err && err.name !== "AbortError") showImg(); });
-  else showImg();
-});
-document.getElementById("img-close").addEventListener("click", () => { document.getElementById("img-view").hidden = true; });
-
-// ===== Start =====
-showMeds(); update();
+showMeds(); renderTop(); update();
 </script>
 
 <script>
