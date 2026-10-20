@@ -13,7 +13,7 @@
 <title>Clinic Bill</title>
 <style id="page-style"></style>
 <style>
-/* Layout: two screens (Prescription, Bill) switched from a bottom bar; patient number and total pinned at top; big tap targets throughout. */
+/* Layout: one screen. Final amount pinned at top; fee, procedures and discount as one-tap rows; medicine tiles below; picked items + Print pinned at bottom. */
 :root {
   --paper: #eef2f7;
   --card: #ffffff;
@@ -23,6 +23,8 @@
   --pen: #1d3fa8;
   --pen-soft: #dde6fb;
   --pen-ink: #ffffff;
+  --save: #0f7a4a;
+  --save-soft: #dcf3e7;
   --danger: #b4232f;
   --font-body: "Atkinson Hyperlegible", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
   --font-num: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -31,166 +33,142 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #0d121a; --card: #18202c; --ink: #edf1f7; --muted: #9aa5b6; --line: #2a3446;
-    --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --danger: #f07a83; color-scheme: dark;
+    --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --save-soft: #163a2a; --danger: #f07a83; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0d121a; --card: #18202c; --ink: #edf1f7; --muted: #9aa5b6; --line: #2a3446;
-  --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --danger: #f07a83; color-scheme: dark;
+  --pen: #7d9cf5; --pen-soft: #22325a; --pen-ink: #0b1020; --save: #5fd39b; --save-soft: #163a2a; --danger: #f07a83; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 18px;
-  padding-left: max(12px, env(safe-area-inset-left, 0px));
-  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
   padding-block: 0 150px;
 }
-button, input, textarea, select { font: inherit; color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
-.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 14px; }
-.ur { font-family: var(--font-urdu); direction: rtl; }
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 12px; }
 
 /* Top bar */
 .top {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6;
-  background: var(--paper); padding-block: 10px 8px;
-  display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--line);
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--paper);
+  padding-block: 8px 6px; border-bottom: 2px solid var(--line); display: grid; gap: 2px;
 }
+.top-row { display: flex; align-items: center; gap: 8px; }
 .opd {
-  flex: none; padding: 8px 10px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
+  flex: none; padding: 6px 9px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
   font-family: var(--font-num); font-weight: 700; font-size: 18px; line-height: 1.1; text-align: center;
 }
-.opd small { display: block; font-family: var(--font-body); font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .06em; }
-.total { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; }
-.total-label { font-size: 15px; color: var(--muted); font-weight: 700; }
-.total-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 700; line-height: 1; color: var(--pen); }
-.code-pill {
-  flex: none; font-family: var(--font-num); font-weight: 700; font-size: 16px; color: var(--ink);
-  border: 2px solid var(--ink); border-radius: 999px; padding: 2px 8px;
+.opd small { display: block; font-family: var(--font-body); font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.total { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.total-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 42px; font-weight: 700; line-height: 1; color: var(--pen); }
+.code-pill { flex: none; font-family: var(--font-num); font-weight: 700; font-size: 16px; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 8px; }
+.new { padding: 13px 13px; border-radius: 14px; border: 0; background: var(--pen); color: var(--pen-ink); font-weight: 700; font-size: 16px; white-space: nowrap; }
+.disc-line { font-size: 15px; color: var(--save); font-weight: 700; font-family: var(--font-num); }
+.undo { font-size: 15px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.undo button { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 4px; }
+
+.lbl { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin: 0 0 5px; }
+.row5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.btn {
+  position: relative; min-width: 0; padding: 12px 2px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
+  font-weight: 700; font-size: 16px; line-height: 1.15; text-align: center;
 }
-.new { padding: 14px 14px; border-radius: 14px; border: 0; background: var(--pen); color: var(--pen-ink); font-weight: 700; font-size: 17px; white-space: nowrap; }
-.undo { font-size: 16px; color: var(--muted); display: flex; gap: 8px; align-items: center; justify-content: center; }
-.undo button { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 6px; }
-
-h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 6px; }
-section { min-width: 0; }
-
-/* Chips */
-.row-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-  padding: 14px 10px; border-radius: 14px; border: 2px solid var(--line); background: var(--card);
-  font-family: var(--font-num); font-size: 18px; font-weight: 700;
-}
-.chip.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
-.mini { padding: 9px 11px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); font-size: 16px; font-weight: 700; }
-.mini.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
-.consult { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.consult .chip { padding: 14px 2px; }
-
-/* Charge (rounding + code) */
-.charge { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.charge-label { font-size: 14px; color: var(--muted); font-weight: 700; }
-.charge .mini { font-family: var(--font-num); }
-
-/* Fields */
-.fields { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
-.field {
-  width: 100%; padding: 13px 14px; font-size: 18px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
-}
-.field:focus { border-color: var(--pen); outline: none; }
-textarea.field { resize: vertical; min-height: 52px; }
-.stack { display: grid; gap: 8px; }
-
-/* Prescription medicines */
-.rx-list { display: grid; gap: 8px; }
-.rx-card { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px; display: grid; gap: 8px; }
-.rx-head { display: flex; align-items: center; gap: 8px; }
-.rx-name { flex: 1; min-width: 0; font-weight: 700; font-size: 19px; overflow-wrap: break-word; }
-.rx-x { border: 0; background: none; color: var(--danger); font-size: 26px; width: 40px; height: 40px; line-height: 1; }
-.rx-ur { font-size: 17px; color: var(--muted); text-align: right; line-height: 2; }
-.rx-charge { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); }
-.add-med { width: 100%; padding: 16px; border-radius: 14px; border: 2px dashed var(--pen); background: var(--pen-soft); color: var(--pen); font-weight: 700; font-size: 18px; }
-.print-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.print-row .new { padding: 16px 8px; }
-.ghost { padding: 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); font-weight: 700; }
-.linkish { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 8px 0; font-size: 16px; justify-self: start; }
-
-/* Tiles */
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.tile { position: relative; min-width: 0; }
-.tile-main {
-  width: 100%; height: 100%; min-height: 72px; display: flex; flex-direction: column; justify-content: center;
-  gap: 3px; padding: 10px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); text-align: left;
-}
-.tile-name { font-weight: 700; font-size: 17px; line-height: 1.15; overflow-wrap: break-word; letter-spacing: -0.01em; }
-.tile-price { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--muted); }
-.tile.on .tile-main { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
-.tile.on .tile-price { color: var(--pen-ink); }
+.btn small { display: block; font-family: var(--font-num); font-size: 13px; font-weight: 500; color: var(--muted); }
+.btn.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
+.btn.on small { color: var(--pen-ink); }
+.btn.num { font-family: var(--font-num); font-size: 17px; }
+.disc .btn { padding: 10px 2px; font-family: var(--font-num); }
+.disc .btn.on { background: var(--save); border-color: var(--save); }
 .badge {
-  position: absolute; top: -8px; right: -4px; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 15px;
-  background: var(--danger); color: #fff; font-family: var(--font-num); font-weight: 700; font-size: 16px;
+  position: absolute; top: -8px; right: -4px; min-width: 26px; height: 26px; padding: 0 5px; border-radius: 13px;
+  background: var(--danger); color: #fff; font-family: var(--font-num); font-weight: 700; font-size: 14px;
   display: grid; place-items: center; pointer-events: none;
 }
-.minus {
-  position: absolute; bottom: 4px; right: 4px; width: 36px; height: 36px; border-radius: 10px; border: 0;
-  background: var(--card); color: var(--pen); font-size: 26px; font-weight: 700; line-height: 1;
+
+/* Medicines */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.tile { position: relative; min-width: 0; }
+.tile-main {
+  width: 100%; height: 100%; min-height: 64px; display: flex; flex-direction: column; justify-content: center;
+  gap: 2px; padding: 8px 8px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); text-align: left;
 }
+.tile-name { font-weight: 700; font-size: 17px; line-height: 1.15; overflow-wrap: break-word; letter-spacing: -0.01em; }
+.tile-sub { font-family: var(--font-num); font-size: 13px; color: var(--muted); line-height: 1.2; }
+.tile.on .tile-main { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
+.tile.on .tile-sub { color: var(--pen-ink); }
 .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--line); padding: 4px; border-radius: 14px; }
-.tab { padding: 12px 2px; border: 0; border-radius: 10px; background: none; font-weight: 700; font-size: 16px; color: var(--muted); }
+.tab { padding: 11px 2px; border: 0; border-radius: 10px; background: none; font-weight: 700; font-size: 16px; color: var(--muted); }
 .tab.on { background: var(--card); color: var(--ink); }
 .search-box { position: relative; }
-.search { width: 100%; padding: 14px 48px 14px 16px; font-size: 18px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); }
+.search { width: 100%; padding: 13px 46px 13px 14px; font-size: 18px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); }
 .search:focus { border-color: var(--pen); outline: none; }
-.search-x { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: none; font-size: 24px; color: var(--muted); }
-.empty { color: var(--muted); text-align: center; padding: 12px; margin: 0; }
+.search-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: none; font-size: 24px; color: var(--muted); }
+.add-custom { width: 100%; padding: 14px; border-radius: 12px; border: 2px dashed var(--pen); background: var(--pen-soft); color: var(--pen); font-weight: 700; }
 
-/* Bottom: picked strip + screen switch */
+/* Bottom: picked items + print */
 .bottom {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card);
   border-top: 2px solid var(--pen); box-shadow: 0 -6px 20px rgb(0 0 0 / 0.12);
-  padding-left: max(12px, env(safe-area-inset-left, 0px));
-  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
   padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
 .bottom-inner { max-width: 640px; margin: 0 auto; display: grid; gap: 8px; }
 .picked { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .picked::-webkit-scrollbar { display: none; }
-.pick { flex: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; padding: 6px 4px 6px 10px; border-radius: 10px; background: var(--pen-soft); font-size: 16px; font-weight: 700; }
-.pick .amt { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.pick button { border: 0; background: none; color: var(--danger); font-size: 22px; width: 32px; height: 32px; line-height: 1; }
+.pick { flex: none; white-space: nowrap; display: flex; align-items: center; border-radius: 10px; background: var(--pen-soft); font-size: 15px; font-weight: 700; }
+.pick .pk-main { border: 0; background: none; padding: 7px 4px 7px 10px; display: flex; gap: 6px; align-items: center; }
+.pick .amt { font-family: var(--font-num); }
+.pick .pk-x { border: 0; background: none; color: var(--danger); font-size: 22px; width: 34px; height: 34px; line-height: 1; }
+.pick.rx { background: var(--save-soft); }
 .hint { color: var(--muted); font-size: 15px; padding: 6px 0; white-space: nowrap; }
-.nav { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.nav button { padding: 13px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-weight: 700; font-size: 17px; }
-.nav button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.actions button { padding: 13px; border-radius: 12px; font-weight: 700; font-size: 17px; border: 0; background: var(--ink); color: var(--paper); }
+.actions .alt { background: var(--card); color: var(--ink); border: 2px solid var(--line); }
 
 /* Sheets */
 .scrim { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / 0.45); display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
   width: 100%; max-width: 640px; background: var(--card); border-radius: 20px 20px 0 0; max-height: 92vh; overflow-y: auto;
-  padding: 18px max(16px, env(safe-area-inset-left, 0px)) calc(18px + env(safe-area-inset-bottom, 0px));
+  padding: 16px max(14px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px));
   display: grid; gap: 12px;
 }
-.sheet.tall { height: 92vh; align-content: start; }
 .sheet h3 { margin: 0; font-size: 22px; }
-.sheet p { margin: 0; color: var(--muted); font-size: 16px; }
-.sheet .grid .chip { font-size: 18px; padding: 18px 4px; }
-.sheet .chip small { display: block; font-size: 14px; font-weight: 500; opacity: .85; }
-.amount-in { width: 100%; padding: 16px; font-size: 26px; font-family: var(--font-num); border-radius: 14px; border: 2px solid var(--pen); background: var(--card); }
-.sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.sheet p { margin: 0; color: var(--muted); font-size: 15px; }
 .sheet-head { display: flex; align-items: center; gap: 8px; }
-.sheet-head h3 { flex: 1; }
+.sheet-head h3 { flex: 1; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini { padding: 11px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); font-size: 17px; font-weight: 700; }
+.mini.on { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
+.ur { font-family: var(--font-urdu); direction: rtl; text-align: right; color: var(--muted); font-size: 17px; line-height: 2; }
+.field { width: 100%; padding: 13px 14px; font-size: 18px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); }
+.field:focus { border-color: var(--pen); outline: none; }
+.fields { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+.amount-in { width: 100%; padding: 16px; font-size: 26px; font-family: var(--font-num); border-radius: 14px; border: 2px solid var(--pen); background: var(--card); }
+.two { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.big { padding: 15px 8px; border-radius: 14px; border: 0; background: var(--pen); color: var(--pen-ink); font-weight: 700; font-size: 17px; }
+.ghost { padding: 15px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); font-weight: 700; }
+.danger { color: var(--danger); }
+.linkish { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 6px 0; font-size: 16px; justify-self: start; }
 label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-weight: 700; }
 .set-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .preview-img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(130px + env(safe-area-inset-bottom, 0px)); z-index: 8;
+  background: var(--ink); color: var(--paper); padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 700; max-width: 92vw;
+}
 @media (prefers-reduced-motion: no-preference) {
   .total-num.bump { animation: bump .25s ease-out; }
   @keyframes bump { from { transform: scale(1.1); } to { transform: scale(1); } }
 }
-@media (max-width: 360px) { .grid { grid-template-columns: repeat(2, 1fr); } .total-num { font-size: 32px; } .new { padding: 12px 10px; font-size: 15px; } }
+@media (max-width: 360px) { .grid { grid-template-columns: repeat(2, 1fr); } .total-num { font-size: 34px; } .btn { font-size: 14px; } }
 
 /* Print */
 #print-area { display: none; }
@@ -207,128 +185,111 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
 <body>
 <div class="wrap">
   <header class="top">
-    <button class="opd" id="opd" type="button" aria-label="Patient number"><small>NO.</small><span id="opd-num">1</span></button>
-    <div class="total">
-      <span class="total-label">Rs</span>
-      <span class="total-num" id="total">0</span>
-      <span class="code-pill" id="code-pill" hidden></span>
+    <div class="top-row">
+      <button class="opd" id="opd" type="button" aria-label="Patient number"><small>NO.</small><span id="opd-num">1</span></button>
+      <div class="total">
+        <span class="total-num" id="total">0</span>
+        <span class="code-pill" id="code-pill" hidden></span>
+      </div>
+      <button class="new" id="clear" type="button">New patient</button>
     </div>
-    <button class="new" id="clear" type="button">New patient</button>
+    <div class="disc-line" id="disc-line" hidden></div>
+    <div class="undo" id="undo-bar" hidden><span>Cleared.</span><button type="button" id="undo">Undo</button></div>
   </header>
-  <div class="undo" id="undo-bar" hidden><span>Cleared.</span><button type="button" id="undo">Undo</button></div>
 
-  <div class="charge" id="charge" hidden></div>
-
-  <!-- PRESCRIPTION SCREEN -->
-  <div id="view-rx" class="wrap" style="gap:16px">
-    <section class="stack">
-      <div class="fields">
-        <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off">
-        <input id="p-age" class="field" type="text" inputmode="numeric" placeholder="Age" autocomplete="off">
-      </div>
-    </section>
-
-    <section class="stack">
-      <h2>Complaint</h2>
-      <div class="row-chips" id="complaint-chips"></div>
-      <input id="p-complaint" class="field" type="text" placeholder="Complaint / diagnosis" autocomplete="off">
-    </section>
-
-    <section class="stack">
-      <h2>Medicines</h2>
-      <div class="rx-list" id="rx-list"></div>
-      <button class="add-med" id="add-med" type="button">+ Add medicine</button>
-    </section>
-
-    <section class="stack">
-      <h2>Advice</h2>
-      <div class="row-chips" id="advice-chips"></div>
-      <input id="p-advice" class="field" type="text" placeholder="Other advice" autocomplete="off">
-    </section>
-
-    <section class="stack">
-      <h2>Follow-up</h2>
-      <div class="row-chips" id="follow-chips"></div>
-    </section>
-
-    <section class="stack">
-      <h2>Print</h2>
-      <div class="print-row">
-        <button class="new" id="print-pad" type="button">Print on pad</button>
-        <button class="new" id="print-receipt" type="button">Print receipt</button>
-      </div>
-      <button class="ghost" id="share-img" type="button">Share as picture (WhatsApp / printer app)</button>
-      <button class="linkish" id="open-settings" type="button">Print settings</button>
-    </section>
-  </div>
-
-  <!-- BILL SCREEN -->
-  <div id="view-bill" class="wrap" hidden>
-    <section>
-      <h2>Consultation</h2>
-      <div class="consult" id="consult"></div>
-    </section>
-    <section>
-      <h2>Procedures</h2>
-      <div class="grid" id="procedures"></div>
-    </section>
-    <section>
-      <h2>Medicines given</h2>
-      <div style="display:grid;gap:8px">
-        <div class="search-box">
-          <input id="search" class="search" type="search" placeholder="Type to find… (monte, esopep)" autocomplete="off">
-          <button class="search-x" id="search-x" type="button" aria-label="Clear search" hidden>×</button>
-        </div>
-        <div class="tabs" id="tabs" role="tablist"></div>
-        <div class="grid" id="meds"></div>
-        <p class="empty" id="nomatch" hidden>Not found. Use “Other amount” in Procedures.</p>
-      </div>
-    </section>
-  </div>
+  <section>
+    <div class="lbl">Fee</div>
+    <div class="row5" id="fee"></div>
+  </section>
+  <section>
+    <div class="lbl">Procedures</div>
+    <div class="row5" id="procs"></div>
+  </section>
+  <section>
+    <div class="lbl">Discount %</div>
+    <div class="row5 disc" id="disc"></div>
+  </section>
+  <section style="display:grid;gap:7px">
+    <div class="lbl" style="margin:0">Medicines</div>
+    <div class="search-box">
+      <input id="search" class="search" type="search" placeholder="Type to find… (mon, eso)" autocomplete="off">
+      <button class="search-x" id="search-x" type="button" aria-label="Clear search" hidden>×</button>
+    </div>
+    <button class="add-custom" id="add-custom" type="button" hidden></button>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="grid" id="meds"></div>
+  </section>
 </div>
 
 <div class="bottom">
   <div class="bottom-inner">
     <div class="picked" id="picked"></div>
-    <div class="nav">
-      <button type="button" id="nav-rx">Prescription</button>
-      <button type="button" id="nav-bill">Bill</button>
+    <div class="actions">
+      <button type="button" id="btn-print">Print / Share</button>
+      <button type="button" class="alt" id="btn-amount">Type amount</button>
     </div>
   </div>
 </div>
 
-<!-- Number / quick-choice sheet -->
-<div class="scrim" id="scrim" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-    <h3 id="sheet-title"></h3>
-    <p id="sheet-note"></p>
-    <div class="grid" id="sheet-quick"></div>
-    <input id="sheet-amount" class="amount-in" type="number" inputmode="numeric" placeholder="Type number">
-    <div class="sheet-actions">
-      <button class="ghost" id="sheet-cancel" type="button">Cancel</button>
-      <button class="new" id="sheet-ok" type="button">OK</button>
+<div class="toast" id="toast" hidden></div>
+
+<!-- Number sheet -->
+<div class="scrim" id="num" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="num-title">
+    <h3 id="num-title"></h3>
+    <p id="num-note"></p>
+    <div class="three" id="num-quick"></div>
+    <input id="num-in" class="amount-in" type="number" inputmode="numeric" placeholder="Type number">
+    <div class="two">
+      <button class="ghost" id="num-cancel" type="button">Cancel</button>
+      <button class="big" id="num-ok" type="button">OK</button>
     </div>
   </div>
 </div>
 
-<!-- Medicine picker for prescription -->
-<div class="scrim" id="picker" hidden>
-  <div class="sheet tall" role="dialog" aria-modal="true" aria-labelledby="picker-title">
-    <div class="sheet-head"><h3 id="picker-title">Add medicine</h3><button class="ghost" id="picker-close" type="button">Close</button></div>
-    <div class="search-box">
-      <input id="pk-search" class="search" type="search" placeholder="Type medicine name…" autocomplete="off">
+<!-- Medicine dose sheet -->
+<div class="scrim" id="dose" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dose-title">
+    <div class="sheet-head"><h3 id="dose-title"></h3><button class="big" id="dose-done" type="button">Done</button></div>
+    <div class="chips" id="dose-form"></div>
+    <div class="chips" id="dose-dose"></div>
+    <div class="chips" id="dose-days"></div>
+    <div class="chips" id="dose-food"></div>
+    <div class="ur" id="dose-ur"></div>
+    <div class="chips" id="dose-given"></div>
+    <button class="linkish danger" id="dose-remove" type="button">Remove this medicine</button>
+  </div>
+</div>
+
+<!-- Print sheet -->
+<div class="scrim" id="print" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="print-title">
+    <div class="sheet-head"><h3 id="print-title">Print / Share</h3><button class="ghost" id="print-close" type="button">Close</button></div>
+    <p>All optional. Leave empty and print straight away.</p>
+    <div class="fields">
+      <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off">
+      <input id="p-age" class="field" type="text" inputmode="numeric" placeholder="Age" autocomplete="off">
     </div>
-    <button class="add-med" id="pk-custom" type="button" hidden></button>
-    <div class="tabs" id="pk-tabs"></div>
-    <div class="grid" id="pk-grid"></div>
+    <div class="chips" id="complaint-chips"></div>
+    <input id="p-complaint" class="field" type="text" placeholder="Complaint" autocomplete="off">
+    <div class="lbl" style="margin:0">Follow-up</div>
+    <div class="chips" id="follow-chips"></div>
+    <div class="lbl" style="margin:0">Advice</div>
+    <div class="chips" id="advice-chips"></div>
+    <div class="three">
+      <button class="big" id="print-pad" type="button">Pad</button>
+      <button class="big" id="print-receipt" type="button">Receipt</button>
+      <button class="big" id="share-img" type="button">Picture</button>
+    </div>
+    <button class="linkish" id="open-settings" type="button">Print settings</button>
   </div>
 </div>
 
 <!-- Print settings -->
 <div class="scrim" id="settings" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div class="sheet-head"><h3 id="settings-title">Print settings</h3><button class="new" id="settings-close" type="button">Done</button></div>
-    <p>Receipt printer (no pad): printed at the top.</p>
+    <div class="sheet-head"><h3 id="settings-title">Print settings</h3><button class="big" id="settings-close" type="button">Done</button></div>
+    <p>Receipt printer and picture: printed at the top.</p>
     <label class="set">Clinic name<input id="s-clinic" class="field" type="text"></label>
     <label class="set">Doctor name and degree<input id="s-doctor" class="field" type="text"></label>
     <label class="set">Receipt paper width
@@ -346,10 +307,10 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
   </div>
 </div>
 
-<!-- Picture preview fallback -->
+<!-- Picture fallback -->
 <div class="scrim" id="img-view" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="img-title">
-    <div class="sheet-head"><h3 id="img-title">Prescription picture</h3><button class="new" id="img-close" type="button">Done</button></div>
+    <div class="sheet-head"><h3 id="img-title">Prescription picture</h3><button class="big" id="img-close" type="button">Done</button></div>
     <p>Press and hold the picture to save or share it.</p>
     <img id="img-out" class="preview-img" alt="Prescription picture">
   </div>
@@ -359,13 +320,14 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
 
 <script>
 // ===== Rates (as given by the doctor). perTab items are charged by tablets dispensed. =====
-const PROCEDURES = [
-  { id: "drip", f: "", name: "Drip", price: 850 },
-  { id: "inj", f: "", name: "Injection", price: 150 },
-  { id: "neb", f: "", name: "Nebs", price: 200 },
-  { id: "dress", f: "", name: "Dressing", price: 200 },
-  { id: "other", f: "", name: "Other amount", other: true },
+const FEES = [0, 300, 400, 500];
+const PROCS = [
+  { id: "inj", name: "Inj", price: 150 },
+  { id: "drip", name: "Drip", price: 850 },
+  { id: "neb", name: "Nebs", price: 200 },
+  { id: "dress", name: "Dressing", price: 200 },
 ];
+const DISCOUNTS = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 const TABS = [
   { key: "T", title: "Tablets", items: [
     { id: "t-airflow", name: "Airflow", price: 360 },
@@ -430,41 +392,26 @@ const TABS = [
     { id: "o-cranberry", name: "Cranberry sachet", price: 350, f: "Sac" },
   ]},
 ];
-const CONSULT = [0, 300, 400, 500];
 
 // ===== Prescription vocabulary =====
-const FORM_LABEL = { T: "Tab", C: "Cap", S: "Syp", Inj: "Inj", Sac: "Sachet", "": "" };
+const FORM_LABEL = { T: "Tab", C: "Cap", S: "Syp", Inj: "Inj", Sac: "Sachet" };
 const DOSES = {
   pill: [
-    { k: "1xOD", ur: "دن میں ایک بار", n: 1 },
-    { k: "1xBD", ur: "صبح، شام ایک ایک", n: 2 },
-    { k: "1xTDS", ur: "دن میں تین بار", n: 3 },
-    { k: "1xHS", ur: "رات سوتے وقت", n: 1 },
-    { k: "½xBD", ur: "آدھی صبح، آدھی شام", n: 1 },
-    { k: "SOS", ur: "ضرورت کے وقت", n: 0 },
+    { k: "1xOD", ur: "دن میں ایک بار", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ایک", n: 2 },
+    { k: "1xTDS", ur: "دن میں تین بار", n: 3 }, { k: "1xHS", ur: "رات سوتے وقت", n: 1 },
+    { k: "½xBD", ur: "آدھی صبح، آدھی شام", n: 1 }, { k: "SOS", ur: "ضرورت کے وقت", n: 0 },
   ],
   S: [
-    { k: "½ tsf TDS", ur: "آدھا چمچ دن میں تین بار" },
-    { k: "1 tsf BD", ur: "ایک چمچ صبح، شام" },
-    { k: "1 tsf TDS", ur: "ایک چمچ دن میں تین بار" },
-    { k: "2 tsf TDS", ur: "دو چمچ دن میں تین بار" },
-    { k: "1 tsf HS", ur: "ایک چمچ رات سوتے وقت" },
-    { k: "SOS", ur: "ضرورت کے وقت" },
+    { k: "½ tsf TDS", ur: "آدھا چمچ دن میں تین بار" }, { k: "1 tsf BD", ur: "ایک چمچ صبح، شام" },
+    { k: "1 tsf TDS", ur: "ایک چمچ دن میں تین بار" }, { k: "2 tsf TDS", ur: "دو چمچ دن میں تین بار" },
+    { k: "1 tsf HS", ur: "ایک چمچ رات سوتے وقت" }, { k: "SOS", ur: "ضرورت کے وقت" },
   ],
-  Inj: [
-    { k: "Stat", ur: "ابھی ایک ٹیکہ" },
-    { k: "IM", ur: "پٹھے میں ٹیکہ" },
-    { k: "IV", ur: "رگ میں ٹیکہ" },
-    { k: "OD", ur: "روزانہ ایک ٹیکہ" },
-  ],
-  Sac: [
-    { k: "1xOD", ur: "دن میں ایک ساشے پانی میں", n: 1 },
-    { k: "1xBD", ur: "صبح، شام ایک ساشے پانی میں", n: 2 },
-  ],
+  Inj: [ { k: "Stat", ur: "ابھی ایک ٹیکہ" }, { k: "IM", ur: "پٹھے میں ٹیکہ" }, { k: "IV", ur: "رگ میں ٹیکہ" }, { k: "OD", ur: "روزانہ ایک ٹیکہ" } ],
+  Sac: [ { k: "1xOD", ur: "دن میں ایک ساشے پانی میں", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ساشے پانی میں", n: 2 } ],
 };
 const doseKind = f => (f === "T" || f === "C") ? "pill" : (DOSES[f] ? f : "pill");
 const DAYS = [3, 5, 7, 10, 15, 30];
-const FOOD = [ { k: "before", en: "before meal", ur: "کھانے سے پہلے" }, { k: "after", en: "after meal", ur: "کھانے کے بعد" } ];
+const FOOD = [ { k: "before", en: "before meal", ur: "کھانے سے پہلے", label: "Before meal" }, { k: "after", en: "after meal", ur: "کھانے کے بعد", label: "After meal" } ];
 const COMPLAINTS = ["Fever", "Cough", "Flu", "Sore throat", "Body ache", "Headache", "Stomach pain", "Diarrhea", "Vomiting", "BP", "Sugar", "Allergy"];
 const ADVICE = [
   { k: "water", en: "Drink plenty of water", ur: "پانی زیادہ پئیں" },
@@ -478,7 +425,7 @@ const FOLLOW = [ { d: 3, label: "3 days" }, { d: 5, label: "5 days" }, { d: 7, l
 
 // ===== Helpers =====
 const ITEMS = {};
-PROCEDURES.forEach(it => { ITEMS[it.id] = it; });
+PROCS.forEach(it => { ITEMS[it.id] = it; });
 TABS.forEach(t => t.items.forEach(it => { if (it.f == null) it.f = t.key; it.tab = t.key; ITEMS[it.id] = it; }));
 const lineAmount = (it, q) => it.perTab ? Math.round(it.perTab.pack / it.perTab.size * q) : it.price * q;
 const fmt = n => n.toLocaleString("en-US");
@@ -500,376 +447,299 @@ function billCode(amount) {
 }
 
 // ===== State =====
-const blankRx = () => ({ name: "", age: "", complaint: "", meds: [], advice: [], adviceText: "", follow: null });
-const blankBill = () => ({ qty: {}, consult: null, extras: [], round: "10" });
-let draft = store.get("cb-draft", null);
-let rx = draft && draft.day === todayKey() ? draft.rx : blankRx();
-let state = draft && draft.day === todayKey() ? draft.bill : blankBill();
+const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], name: "", age: "", complaint: "", follow: null, advice: [] });
+let draft = store.get("cb-draft2", null);
+let S = draft && draft.day === todayKey() ? Object.assign(blank(), draft.s) : blank();
 let opd = store.get("cb-opd", null);
 if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
 let settings = Object.assign({ clinic: "", doctor: "", width: "58", top: 45, left: 12, right: 12, pad: "A5" }, store.get("cb-settings", {}));
-let view = store.get("cb-view", "rx");
+let memory = store.get("cb-dose-memory", {});
 let activeTab = store.get("cb-tab", "T");
 if (!TABS.some(t => t.key === activeTab)) activeTab = "T";
-let lastCleared = null;
-let uidSeq = Date.now();
-const save = () => { store.set("cb-draft", { day: todayKey(), rx, bill: state }); store.set("cb-opd", opd); };
+let lastCleared = null, uidSeq = Date.now();
+const save = () => { store.set("cb-draft2", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
 
-// ===== Number / choice sheet =====
-const scrim = document.getElementById("scrim");
-const sheetTitle = document.getElementById("sheet-title");
-const sheetNote = document.getElementById("sheet-note");
-const sheetQuick = document.getElementById("sheet-quick");
-const sheetAmount = document.getElementById("sheet-amount");
-let sheetDone = null;
-function openSheet({ title, note, quick, placeholder, onPick, value }) {
-  sheetTitle.textContent = title;
-  sheetNote.textContent = note || ""; sheetNote.hidden = !note;
-  sheetQuick.replaceChildren(...quick.map(q => {
-    const b = el("button", "chip"); b.type = "button";
-    b.append(q.label); if (q.sub) b.append(el("small", null, q.sub));
-    b.addEventListener("click", () => { onPick(q.value); closeSheet(); });
-    return b;
-  }));
-  sheetQuick.hidden = quick.length === 0;
-  sheetAmount.value = value != null ? value : ""; sheetAmount.placeholder = placeholder;
-  sheetDone = onPick;
-  scrim.hidden = false;
-  if (quick.length === 0) setTimeout(() => sheetAmount.focus(), 50);
-}
-function closeSheet() { scrim.hidden = true; sheetDone = null; }
-function sheetSubmit() {
-  const v = parseInt(sheetAmount.value, 10);
-  if (!Number.isFinite(v) || v < 0) { sheetAmount.focus(); return; }
-  sheetDone && sheetDone(v); closeSheet();
-}
-document.getElementById("sheet-ok").addEventListener("click", sheetSubmit);
-document.getElementById("sheet-cancel").addEventListener("click", closeSheet);
-sheetAmount.addEventListener("keydown", e => { if (e.key === "Enter") sheetSubmit(); });
-document.querySelectorAll(".scrim").forEach(s => s.addEventListener("click", e => { if (e.target === s) s.hidden = true; }));
-document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".scrim").forEach(s => { s.hidden = true; }); });
+// ===== Toast =====
+const toastEl = document.getElementById("toast"); let toastT;
+function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 1800); }
 
-// ===== Screens =====
-const viewRx = document.getElementById("view-rx"), viewBill = document.getElementById("view-bill");
-const navRx = document.getElementById("nav-rx"), navBill = document.getElementById("nav-bill");
-function setView(v) {
-  view = v; store.set("cb-view", v);
-  viewRx.hidden = v !== "rx"; viewBill.hidden = v !== "bill";
-  navRx.classList.toggle("on", v === "rx"); navBill.classList.toggle("on", v === "bill");
-  window.scrollTo({ top: 0 });
-}
-navRx.addEventListener("click", () => setView("rx"));
-navBill.addEventListener("click", () => setView("bill"));
+// ===== Sheets (generic) =====
+const sheets = document.querySelectorAll(".scrim");
+sheets.forEach(s => s.addEventListener("click", e => { if (e.target === s) { s.hidden = true; if (s.id === "dose") doseClose(); } }));
+document.addEventListener("keydown", e => { if (e.key === "Escape") sheets.forEach(s => { if (!s.hidden) { s.hidden = true; if (s.id === "dose") doseClose(); } }); });
 
-// ===== OPD number =====
-const opdNum = document.getElementById("opd-num");
-document.getElementById("opd").addEventListener("click", () => openSheet({
-  title: "Patient number", note: "Goes up by 1 on each New patient and starts again at 1 every day.",
-  quick: [], placeholder: "Number", value: opd.n,
-  onPick: v => { if (v > 0) { opd.n = v; save(); update(); } },
-}));
+const numSheet = document.getElementById("num"), numIn = document.getElementById("num-in");
+let numDone = null;
+function askNumber({ title, note, quick = [], value, onPick }) {
+  document.getElementById("num-title").textContent = title;
+  const n = document.getElementById("num-note"); n.textContent = note || ""; n.hidden = !note;
+  const q = document.getElementById("num-quick");
+  q.replaceChildren(...quick.map(o => { const b = el("button", "mini", o.label); b.type = "button"; b.addEventListener("click", () => { onPick(o.value); numSheet.hidden = true; }); return b; }));
+  q.hidden = quick.length === 0;
+  numIn.value = value != null ? value : ""; numDone = onPick; numSheet.hidden = false;
+  if (!quick.length) setTimeout(() => numIn.focus(), 50);
+}
+function numSubmit() { const v = parseInt(numIn.value, 10); if (!Number.isFinite(v) || v < 0) { numIn.focus(); return; } numDone && numDone(v); numSheet.hidden = true; }
+document.getElementById("num-ok").addEventListener("click", numSubmit);
+document.getElementById("num-cancel").addEventListener("click", () => { numSheet.hidden = true; });
+numIn.addEventListener("keydown", e => { if (e.key === "Enter") numSubmit(); });
 
-// ===== Prescription: patient fields =====
-const pName = document.getElementById("p-name"), pAge = document.getElementById("p-age");
-const pComplaint = document.getElementById("p-complaint"), pAdvice = document.getElementById("p-advice");
-pName.addEventListener("input", () => { rx.name = pName.value; save(); });
-pAge.addEventListener("input", () => { rx.age = pAge.value; save(); });
-pComplaint.addEventListener("input", () => { rx.complaint = pComplaint.value; save(); renderComplaintChips(); });
-pAdvice.addEventListener("input", () => { rx.adviceText = pAdvice.value; save(); });
+// ===== Fee / procedures / discount =====
+const feeBox = document.getElementById("fee");
+const feeBtns = FEES.map(v => {
+  const b = el("button", "btn num", v === 0 ? "Free" : String(v)); b.type = "button";
+  b.addEventListener("click", () => { S.fee = S.fee === v ? null : v; update(); });
+  feeBox.append(b); return { v, b };
+});
+const feeOther = el("button", "btn num", "Other"); feeOther.type = "button";
+feeOther.addEventListener("click", () => askNumber({ title: "Fee", onPick: v => { S.fee = v; update(); } }));
+feeBox.append(feeOther);
 
-const complaintChips = document.getElementById("complaint-chips");
-function complaintParts() { return rx.complaint.split(",").map(s => s.trim()).filter(Boolean); }
-function renderComplaintChips() {
-  const parts = complaintParts().map(s => s.toLowerCase());
-  complaintChips.replaceChildren(...COMPLAINTS.map(c => {
-    const b = el("button", "mini" + (parts.includes(c.toLowerCase()) ? " on" : ""), c); b.type = "button";
-    b.addEventListener("click", () => {
-      let p = complaintParts();
-      if (p.map(s => s.toLowerCase()).includes(c.toLowerCase())) p = p.filter(s => s.toLowerCase() !== c.toLowerCase()); else p.push(c);
-      rx.complaint = p.join(", "); pComplaint.value = rx.complaint; save(); renderComplaintChips();
-    });
-    return b;
-  }));
-}
+const procBox = document.getElementById("procs"), procBtns = {};
+PROCS.forEach(p => {
+  const b = el("button", "btn", p.name); b.type = "button"; b.append(el("small", null, String(p.price)));
+  const badge = el("span", "badge"); badge.hidden = true; b.append(badge);
+  b.addEventListener("click", () => { S.qty[p.id] = (S.qty[p.id] || 0) + 1; update(); });
+  procBox.append(b); procBtns[p.id] = { b, badge };
+});
+const otherBtn = el("button", "btn", "Other"); otherBtn.type = "button"; otherBtn.append(el("small", null, "Rs"));
+const otherBadge = el("span", "badge"); otherBadge.hidden = true; otherBtn.append(otherBadge);
+otherBtn.addEventListener("click", () => askNumber({ title: "Other amount", note: "New injection or anything not in the list.", onPick: v => { if (v > 0) { S.extras.push(v); update(); } } }));
+procBox.append(otherBtn);
 
-const adviceChips = document.getElementById("advice-chips");
-function renderAdviceChips() {
-  adviceChips.replaceChildren(...ADVICE.map(a => {
-    const b = el("button", "mini" + (rx.advice.includes(a.k) ? " on" : ""), a.en); b.type = "button";
-    b.addEventListener("click", () => {
-      rx.advice = rx.advice.includes(a.k) ? rx.advice.filter(k => k !== a.k) : rx.advice.concat(a.k);
-      save(); renderAdviceChips();
-    });
-    return b;
-  }));
-}
-const followChips = document.getElementById("follow-chips");
-function renderFollowChips() {
-  followChips.replaceChildren(...FOLLOW.map(f => {
-    const b = el("button", "mini" + (rx.follow === f.d ? " on" : ""), f.label); b.type = "button";
-    b.addEventListener("click", () => { rx.follow = rx.follow === f.d ? null : f.d; save(); renderFollowChips(); });
-    return b;
-  }));
-}
+const discBox = document.getElementById("disc");
+const discBtns = DISCOUNTS.map(d => {
+  const b = el("button", "btn", d === 0 ? "None" : d + "%"); b.type = "button";
+  b.addEventListener("click", () => { S.disc = d; S.override = null; update(); });
+  discBox.append(b); return { d, b };
+});
 
-// ===== Prescription: medicines =====
-function rxQty(m) {
-  // tablets to charge for a per-tablet medicine: per-day count × days, else the first usual amount
-  const it = ITEMS[m.id]; if (!it || !it.perTab) return 1;
-  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
-  if (d && d.n && m.days) return d.n * m.days;
-  return it.perTab.quick[0];
-}
-function rxPriced(m) { const it = m.id && ITEMS[m.id]; return !!(it && (it.price != null || it.perTab)); }
-function addRxMed(it, customName) {
-  const m = it
-    ? { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, charge: true }
-    : { uid: uidSeq++, id: null, name: customName, f: "T", dose: null, days: null, food: null, charge: false };
-  rx.meds.push(m); save(); renderRx(); update();
-  setTimeout(() => { const c = document.querySelector(`[data-uid="${m.uid}"]`); c && c.scrollIntoView({ block: "center", behavior: "smooth" }); }, 30);
-}
+// ===== Medicines =====
 function medLines(m) {
-  const kind = doseKind(m.f);
-  const d = (DOSES[kind] || []).find(x => x.k === m.dose);
+  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
   const food = FOOD.find(x => x.k === m.food);
   const label = (FORM_LABEL[m.f] ? FORM_LABEL[m.f] + " " : "") + m.name;
   const en = [label, m.dose || "", m.days ? `× ${m.days} days` : "", food ? `(${food.en})` : ""].filter(Boolean).join("  ");
   const ur = [d ? d.ur : "", m.days ? `${urNum(m.days)} دن` : "", food ? food.ur : ""].filter(Boolean).join("، ");
   return { label, en, ur };
 }
-const rxList = document.getElementById("rx-list");
-function chipRow(options, current, onPick, labelOf) {
-  const r = el("div", "row-chips");
-  options.forEach(o => {
+function medQty(m) {
+  const it = ITEMS[m.id]; if (!it || !it.perTab) return 1;
+  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
+  if (d && d.n && m.days) return d.n * m.days;
+  return it.perTab.quick[0];
+}
+const priced = m => !!(m.id && ITEMS[m.id] && (ITEMS[m.id].price != null || ITEMS[m.id].perTab));
+const memKey = m => m.id || ("x:" + m.name.toLowerCase());
+const shortDose = m => [m.dose, m.days ? m.days + "d" : ""].filter(Boolean).join(" ");
+
+function addMed(it, customName) {
+  const existing = it && S.meds.find(m => m.id === it.id);
+  if (existing) { openDose(existing); return; }
+  const m = it ? { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true }
+               : { uid: uidSeq++, id: null, name: customName, f: "T", dose: null, days: null, food: null, given: false };
+  const mem = memory[memKey(m)];
+  S.meds.push(m);
+  if (mem) { Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food, f: mem.f || m.f }); update(); toast(`${m.name} ${shortDose(m)} added`); }
+  else { update(); openDose(m, true); }
+}
+
+// Dose sheet
+const doseSheet = document.getElementById("dose");
+let doseMed = null;
+function chipRow(box, options, current, onPick, labelOf) {
+  box.replaceChildren(...options.map(o => {
     const key = typeof o === "object" ? o.k : o;
     const b = el("button", "mini" + (current === key ? " on" : ""), labelOf ? labelOf(o) : String(key)); b.type = "button";
     b.addEventListener("click", () => onPick(current === key ? null : key));
-    r.append(b);
-  });
-  return r;
-}
-function renderRx() {
-  pName.value = rx.name; pAge.value = rx.age; pComplaint.value = rx.complaint; pAdvice.value = rx.adviceText;
-  renderComplaintChips(); renderAdviceChips(); renderFollowChips();
-  if (rx.meds.length === 0) { rxList.replaceChildren(el("p", "empty", "No medicines yet. Tap + Add medicine.")); return; }
-  rxList.replaceChildren(...rx.meds.map((m, i) => {
-    const card = el("div", "rx-card"); card.dataset.uid = m.uid;
-    const lines = medLines(m);
-    const head = el("div", "rx-head");
-    head.append(el("span", "rx-name", `${i + 1}. ${lines.label}`));
-    const x = el("button", "rx-x", "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + m.name);
-    x.addEventListener("click", () => { rx.meds = rx.meds.filter(o => o.uid !== m.uid); save(); renderRx(); update(); });
-    head.append(x); card.append(head);
-    const set = (k, v) => { m[k] = v; save(); renderRx(); update(); };
-    if (!m.id) card.append(chipRow(["T", "C", "S", "Inj"], m.f, v => set("f", v || "T"), k => FORM_LABEL[k]));
-    card.append(chipRow(DOSES[doseKind(m.f)], m.dose, v => set("dose", v), o => o.k));
-    if (m.f !== "Inj") {
-      card.append(chipRow(DAYS, m.days, v => set("days", v), d => d + " d"));
-      card.append(chipRow(FOOD, m.food, v => set("food", v), o => o.k === "before" ? "Before meal" : "After meal"));
-    }
-    if (lines.ur) card.append(el("div", "rx-ur ur", lines.ur));
-    if (rxPriced(m)) {
-      const it = ITEMS[m.id], q = rxQty(m);
-      const c = el("div", "rx-charge");
-      c.append(el("span", null, it.perTab ? `Bill: ${q} tabs = Rs ${fmt(lineAmount(it, q))}` : `Bill: Rs ${fmt(it.price)}`));
-      const t = el("button", "mini" + (m.charge ? " on" : ""), m.charge ? "Charged" : "Not given"); t.type = "button";
-      t.addEventListener("click", () => set("charge", !m.charge));
-      c.append(t); card.append(c);
-    }
-    return card;
+    return b;
   }));
 }
+function renderDose() {
+  const m = doseMed; if (!m) return;
+  document.getElementById("dose-title").textContent = medLines(m).label;
+  const set = (k, v) => { m[k] = v; renderDose(); update(); };
+  const formBox = document.getElementById("dose-form");
+  formBox.hidden = !!m.id;
+  if (!m.id) chipRow(formBox, ["T", "C", "S", "Inj"], m.f, v => set("f", v || "T"), k => FORM_LABEL[k]);
+  chipRow(document.getElementById("dose-dose"), DOSES[doseKind(m.f)], m.dose, v => set("dose", v), o => o.k);
+  const noDays = m.f === "Inj";
+  document.getElementById("dose-days").hidden = noDays; document.getElementById("dose-food").hidden = noDays;
+  if (!noDays) {
+    chipRow(document.getElementById("dose-days"), DAYS, m.days, v => set("days", v), d => d + " days");
+    chipRow(document.getElementById("dose-food"), FOOD, m.food, v => set("food", v), o => o.label);
+  }
+  document.getElementById("dose-ur").textContent = medLines(m).ur;
+  const g = document.getElementById("dose-given");
+  g.hidden = !priced(m);
+  if (priced(m)) {
+    const it = ITEMS[m.id], q = medQty(m);
+    chipRow(g, [{ k: true, l: `Given · Rs ${fmt(lineAmount(it, q))}${it.perTab ? ` (${q} tabs)` : ""}` }, { k: false, l: "Not given (no charge)" }], m.given, v => set("given", v === null ? m.given : v), o => o.l);
+  }
+}
+function openDose(m) { doseMed = m; renderDose(); doseSheet.hidden = false; }
+function doseClose() {
+  const m = doseMed; doseMed = null;
+  if (m && S.meds.includes(m) && (m.dose || m.days)) { memory[memKey(m)] = { dose: m.dose, days: m.days, food: m.food, f: m.id ? undefined : m.f }; store.set("cb-dose-memory", memory); }
+  doseSheet.hidden = true; update();
+}
+document.getElementById("dose-done").addEventListener("click", doseClose);
+document.getElementById("dose-remove").addEventListener("click", () => { S.meds = S.meds.filter(o => o !== doseMed); doseMed = null; doseSheet.hidden = true; update(); });
 
-// ===== Medicine picker =====
-const picker = document.getElementById("picker");
-const pkSearch = document.getElementById("pk-search");
-const pkCustom = document.getElementById("pk-custom");
-const pkTabs = document.getElementById("pk-tabs");
-const pkGrid = document.getElementById("pk-grid");
-let pkTab = "T";
-const pkTiles = [];
+// Medicine tiles
+const medTiles = {};
+const medsBox = document.getElementById("meds");
 TABS.forEach(t => t.items.forEach(it => {
   const tile = el("div", "tile");
   const b = el("button", "tile-main"); b.type = "button";
-  b.append(el("span", "tile-name", it.name), el("span", "tile-price", FORM_LABEL[it.f]));
-  b.addEventListener("click", () => { picker.hidden = true; addRxMed(it); });
-  tile.append(b); pkGrid.append(tile); pkTiles.push({ tile, it });
+  const sub = el("span", "tile-sub");
+  b.append(el("span", "tile-name", it.name), sub);
+  b.addEventListener("click", () => addMed(it));
+  const badge = el("span", "badge", "✓"); badge.hidden = true;
+  tile.append(b, badge); medsBox.append(tile);
+  medTiles[it.id] = { tile, sub, badge, it };
 }));
-const pkTabBtns = TABS.map(t => {
-  const b = el("button", "tab", t.title); b.type = "button";
-  b.addEventListener("click", () => { pkTab = t.key; showPicker(); });
-  pkTabs.append(b); return { key: t.key, b };
-});
-function showPicker() {
-  const q = pkSearch.value.trim().toLowerCase().replace(/\s/g, "");
-  pkTabs.hidden = !!q;
-  pkTiles.forEach(({ tile, it }) => { tile.hidden = q ? !it.name.toLowerCase().replace(/\s/g, "").includes(q) : it.tab !== pkTab; });
-  pkTabBtns.forEach(({ key, b }) => b.classList.toggle("on", key === pkTab));
-  pkCustom.hidden = !q; pkCustom.textContent = `+ Add “${pkSearch.value.trim()}” (not in list)`;
-}
-pkSearch.addEventListener("input", showPicker);
-pkCustom.addEventListener("click", () => { const n = pkSearch.value.trim(); if (!n) return; picker.hidden = true; addRxMed(null, n.charAt(0).toUpperCase() + n.slice(1)); });
-document.getElementById("add-med").addEventListener("click", () => { pkSearch.value = ""; showPicker(); picker.hidden = false; setTimeout(() => pkSearch.focus(), 50); });
-document.getElementById("picker-close").addEventListener("click", () => { picker.hidden = true; });
-
-// ===== Bill screen =====
-const consultBox = document.getElementById("consult");
-const consultBtns = CONSULT.map(v => {
-  const b = el("button", "chip", v === 0 ? "Free" : String(v)); b.type = "button";
-  b.addEventListener("click", () => { state.consult = state.consult === v ? null : v; update(); });
-  consultBox.append(b); return { v, b };
-});
-const consultOther = el("button", "chip", "Other"); consultOther.type = "button";
-consultOther.addEventListener("click", () => openSheet({ title: "Consultation fee", quick: [], placeholder: "Fee in Rs", onPick: v => { state.consult = v; update(); } }));
-consultBox.append(consultOther);
-
-const tiles = {};
-function makeTile(it) {
-  const t = el("div", "tile");
-  const main = el("button", "tile-main"); main.type = "button";
-  const price = el("span", "tile-price", it.other ? "type amount" : it.perTab ? `${it.perTab.pack}/${it.perTab.size} tabs` : String(it.price));
-  main.append(el("span", "tile-name", it.name), price); t.append(main);
-  const badge = el("span", "badge"); badge.hidden = true; t.append(badge);
-  const minus = el("button", "minus", "−"); minus.type = "button"; minus.hidden = true; minus.setAttribute("aria-label", "Remove one " + it.name);
-  t.append(minus);
-  main.addEventListener("click", () => tapItem(it));
-  minus.addEventListener("click", () => { if (it.perTab) setQty(it.id, 0); else setQty(it.id, (state.qty[it.id] || 0) - 1); });
-  tiles[it.id] = { t, price, badge, minus, it };
-  return t;
-}
-function tapItem(it) {
-  if (it.other) {
-    openSheet({ title: "Other amount", note: "New injection or anything not in the list.", quick: [], placeholder: "Amount in Rs",
-      onPick: v => { if (v > 0) { state.extras.push(v); update(); } } });
-  } else if (it.perTab) {
-    const per = it.perTab.pack / it.perTab.size;
-    openSheet({ title: it.name + ": how many tablets?", note: `${it.perTab.pack} for ${it.perTab.size} tablets`,
-      quick: it.perTab.quick.map(q => ({ label: `${q} tabs`, sub: "Rs " + fmt(Math.round(per * q)), value: q })),
-      placeholder: "Other number of tablets", onPick: v => setQty(it.id, v) });
-  } else setQty(it.id, (state.qty[it.id] || 0) + 1);
-}
-function setQty(id, q) { if (q > 0) state.qty[id] = q; else delete state.qty[id]; update(); }
-document.getElementById("procedures").append(...PROCEDURES.map(makeTile));
-const meds = document.getElementById("meds");
-TABS.forEach(t => t.items.forEach(it => meds.append(makeTile(it))));
 const tabsBox = document.getElementById("tabs");
 const tabBtns = TABS.map(t => {
   const b = el("button", "tab", t.title); b.type = "button"; b.setAttribute("role", "tab");
   b.addEventListener("click", () => { activeTab = t.key; store.set("cb-tab", t.key); showMeds(); });
   tabsBox.append(b); return { key: t.key, b };
 });
-const search = document.getElementById("search"), searchX = document.getElementById("search-x");
+const search = document.getElementById("search"), searchX = document.getElementById("search-x"), addCustom = document.getElementById("add-custom");
 function showMeds() {
-  const q = search.value.trim().toLowerCase().replace(/\s/g, "");
+  const raw = search.value.trim(), q = raw.toLowerCase().replace(/\s/g, "");
   searchX.hidden = !q; tabsBox.hidden = !!q;
-  let any = false;
-  TABS.forEach(t => t.items.forEach(it => {
-    const show = q ? it.name.toLowerCase().replace(/\s/g, "").includes(q) : it.tab === activeTab;
-    tiles[it.id].t.hidden = !show; if (show) any = true;
-  }));
+  Object.values(medTiles).forEach(({ tile, it }) => { tile.hidden = q ? !it.name.toLowerCase().replace(/\s/g, "").includes(q) : it.tab !== activeTab; });
   tabBtns.forEach(({ key, b }) => { b.classList.toggle("on", key === activeTab); b.setAttribute("aria-selected", key === activeTab); });
-  document.getElementById("nomatch").hidden = any;
+  addCustom.hidden = !q; addCustom.textContent = `+ Add “${raw}” (not in list)`;
 }
 search.addEventListener("input", showMeds);
 searchX.addEventListener("click", () => { search.value = ""; showMeds(); search.focus(); });
+addCustom.addEventListener("click", () => { const n = search.value.trim(); if (!n) return; search.value = ""; showMeds(); addMed(null, n.charAt(0).toUpperCase() + n.slice(1)); });
 
-// ===== Bill totals =====
+// ===== Totals =====
 function billLines() {
   const out = [];
-  if (state.consult != null) out.push({ name: state.consult === 0 ? "Consult free" : "Consult", amt: state.consult, remove: () => { state.consult = null; } });
-  rx.meds.forEach(m => {
-    if (!m.charge || !rxPriced(m)) return;
-    const it = ITEMS[m.id], q = rxQty(m);
-    out.push({ name: "Rx " + (FORM_LABEL[m.f] ? m.f + " " : "") + m.name + (it.perTab ? ` ×${q}tab` : ""), amt: lineAmount(it, q),
-      remove: () => { m.charge = false; renderRx(); } });
-  });
-  Object.entries(state.qty).forEach(([id, q]) => {
-    const it = ITEMS[id];
-    out.push({ name: (it.f && it.f.length <= 3 ? it.f + " " : "") + it.name + (it.perTab ? ` ×${q}tab` : q > 1 ? ` ×${q}` : ""), amt: lineAmount(it, q), remove: () => { delete state.qty[id]; } });
-  });
-  state.extras.forEach((v, i) => out.push({ name: "Other", amt: v, remove: () => state.extras.splice(i, 1) }));
+  if (S.fee != null) out.push({ name: S.fee === 0 ? "Fee free" : "Fee", amt: S.fee, remove: () => { S.fee = null; } });
+  PROCS.forEach(p => { const q = S.qty[p.id]; if (q) out.push({ name: p.name + (q > 1 ? ` ×${q}` : ""), amt: p.price * q, remove: () => { if (--S.qty[p.id] <= 0) delete S.qty[p.id]; } }); });
+  S.extras.forEach((v, i) => out.push({ name: "Other", amt: v, remove: () => S.extras.splice(i, 1) }));
   return out;
 }
-const ROUNDS = [
-  { k: "10", f: t => Math.round(t / 10) * 10 },
-  { k: "d50", f: t => Math.floor(t / 50) * 50 },
-  { k: "u50", f: t => Math.ceil(t / 50) * 50 },
-  { k: "u100", f: t => Math.ceil(t / 100) * 100 },
-];
-function chargeAmount(total) { const r = ROUNDS.find(x => x.k === state.round) || ROUNDS[0]; return r.f(total); }
+function medBillAmount(m) { return priced(m) && m.given ? lineAmount(ITEMS[m.id], medQty(m)) : 0; }
+function totals() {
+  const gross = billLines().reduce((s, l) => s + l.amt, 0) + S.meds.reduce((s, m) => s + medBillAmount(m), 0);
+  const off = Math.round(gross * S.disc / 100);
+  const net = S.override != null ? S.override : Math.round((gross - off) / 10) * 10;
+  return { gross, off, net };
+}
 
-const totalEl = document.getElementById("total"), pickedEl = document.getElementById("picked");
-const codePill = document.getElementById("code-pill"), chargeBox = document.getElementById("charge");
-let prevTotal = 0;
+const totalEl = document.getElementById("total"), codePill = document.getElementById("code-pill");
+const discLine = document.getElementById("disc-line"), pickedEl = document.getElementById("picked");
+const opdNum = document.getElementById("opd-num");
+let prevNet = 0;
 function update() {
   opdNum.textContent = opd.n;
-  consultBtns.forEach(({ v, b }) => b.classList.toggle("on", state.consult === v));
-  const custom = state.consult != null && !CONSULT.includes(state.consult);
-  consultOther.classList.toggle("on", custom); consultOther.textContent = custom ? String(state.consult) : "Other";
+  feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
+  const custom = S.fee != null && !FEES.includes(S.fee);
+  feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
+  PROCS.forEach(p => { const q = S.qty[p.id] || 0, r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
+  otherBtn.classList.toggle("on", S.extras.length > 0); otherBadge.hidden = S.extras.length < 2; otherBadge.textContent = "×" + S.extras.length;
+  discBtns.forEach(({ d, b }) => b.classList.toggle("on", S.disc === d && d > 0));
 
-  Object.values(tiles).forEach(({ t, price, badge, minus, it }) => {
-    if (it.other) { const n = state.extras.length; t.classList.toggle("on", n > 0); badge.hidden = n === 0; badge.textContent = n; return; }
-    const q = state.qty[it.id] || 0;
-    t.classList.toggle("on", q > 0); minus.hidden = q === 0;
-    badge.hidden = q === 0 || (!it.perTab && q === 1); badge.textContent = it.perTab ? q : "×" + q;
-    if (it.perTab) price.textContent = q ? "Rs " + fmt(lineAmount(it, q)) : `${it.perTab.pack}/${it.perTab.size} tabs`;
-    else price.textContent = q > 1 ? fmt(lineAmount(it, q)) : String(it.price);
+  Object.values(medTiles).forEach(({ tile, sub, badge, it }) => {
+    const m = S.meds.find(x => x.id === it.id);
+    tile.classList.toggle("on", !!m); badge.hidden = !m;
+    const mem = memory[it.id];
+    sub.textContent = m ? (shortDose(m) || "tap to set dose") : (mem ? shortDose(mem) : (it.perTab ? `${it.perTab.pack}/${it.perTab.size}` : String(it.price)));
   });
 
-  const lines = billLines();
-  const total = lines.reduce((s, l) => s + l.amt, 0);
-  const charge = chargeAmount(total);
-  totalEl.textContent = fmt(charge);
-  if (charge !== prevTotal) { totalEl.classList.remove("bump"); void totalEl.offsetWidth; totalEl.classList.add("bump"); prevTotal = charge; }
-  codePill.hidden = total === 0; codePill.textContent = billCode(charge);
+  const { gross, off, net } = totals();
+  totalEl.textContent = fmt(net);
+  if (net !== prevNet) { totalEl.classList.remove("bump"); void totalEl.offsetWidth; totalEl.classList.add("bump"); prevNet = net; }
+  codePill.hidden = net === 0; codePill.textContent = billCode(net);
+  if (S.override != null) { discLine.hidden = false; discLine.textContent = `Typed amount (bill was ${fmt(gross)})`; }
+  else if (S.disc > 0 && gross > 0) { discLine.hidden = false; discLine.textContent = `${fmt(gross)} − ${S.disc}% (${fmt(off)}) = you get ${fmt(net)}`; }
+  else discLine.hidden = true;
 
-  // rounding choices
-  chargeBox.hidden = total === 0;
-  const seen = new Set();
-  const opts = ROUNDS.map(r => ({ k: r.k, v: r.f(total) })).filter(o => !seen.has(o.v) && seen.add(o.v));
-  chargeBox.replaceChildren(el("span", "charge-label", total % 10 ? `Exact ${fmt(total)} →` : "Charge:"), ...opts.map(o => {
-    const b = el("button", "mini" + (o.v === charge ? " on" : ""), `${fmt(o.v)} · ${billCode(o.v)}`); b.type = "button";
-    b.addEventListener("click", () => { state.round = o.k; update(); });
-    return b;
-  }));
-
-  if (lines.length === 0) pickedEl.replaceChildren(el("span", "hint", "Bill fills from the prescription and the Bill screen."));
-  else pickedEl.replaceChildren(...lines.map(l => {
-    const d = el("span", "pick");
-    d.append(el("span", null, l.name), el("span", "amt", fmt(l.amt)));
-    const x = el("button", null, "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + l.name);
-    x.addEventListener("click", () => { l.remove(); update(); });
-    d.append(x); return d;
+  const chips = billLines().map(l => ({ cls: "pick", name: l.name, amt: l.amt, onTap: null, remove: l.remove }));
+  S.meds.forEach(m => chips.push({ cls: "pick rx", name: `${m.name}${shortDose(m) ? " " + shortDose(m) : " ?"}`, amt: medBillAmount(m) || null,
+    onTap: () => openDose(m), remove: () => { S.meds = S.meds.filter(o => o !== m); } }));
+  if (!chips.length) pickedEl.replaceChildren(el("span", "hint", "Tap fee, injection or medicine. Total shows at the top."));
+  else pickedEl.replaceChildren(...chips.map(c => {
+    const d = el("span", c.cls);
+    const main = el("button", "pk-main"); main.type = "button";
+    main.append(el("span", null, c.name)); if (c.amt) main.append(el("span", "amt", fmt(c.amt)));
+    if (c.onTap) main.addEventListener("click", c.onTap); else main.tabIndex = -1;
+    const x = el("button", "pk-x", "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + c.name);
+    x.addEventListener("click", () => { c.remove(); update(); });
+    d.append(main, x); return d;
   }));
   pickedEl.scrollLeft = pickedEl.scrollWidth;
   save();
 }
 
+// ===== Type final amount =====
+document.getElementById("btn-amount").addEventListener("click", () => {
+  const { net } = totals();
+  askNumber({ title: "Final amount to charge", note: "Use this to set your own amount. Tap a discount to go back.", value: net || "", onPick: v => { S.override = v; update(); } });
+});
+
+// ===== OPD number =====
+document.getElementById("opd").addEventListener("click", () => askNumber({
+  title: "Patient number", note: "Goes up by 1 on each New patient. Starts at 1 every day.", value: opd.n,
+  onPick: v => { if (v > 0) { opd.n = v; update(); } },
+}));
+
 // ===== New patient + undo =====
-const undoBar = document.getElementById("undo-bar");
-let undoTimer;
-const hasContent = () => billLines().length > 0 || rx.name || rx.age || rx.complaint || rx.meds.length;
+const undoBar = document.getElementById("undo-bar"); let undoT;
+const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.complaint;
 document.getElementById("clear").addEventListener("click", () => {
   if (!hasContent()) return;
-  lastCleared = JSON.parse(JSON.stringify({ rx, state, n: opd.n }));
-  rx = blankRx(); state = blankBill(); opd.n += 1;
-  search.value = ""; showMeds(); renderRx(); update();
-  setView("rx");
-  undoBar.hidden = false; clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => { undoBar.hidden = true; lastCleared = null; }, 8000);
+  lastCleared = JSON.parse(JSON.stringify({ S, n: opd.n }));
+  S = blank(); opd.n += 1;
+  search.value = ""; showMeds(); update(); window.scrollTo({ top: 0 });
+  undoBar.hidden = false; clearTimeout(undoT); undoT = setTimeout(() => { undoBar.hidden = true; lastCleared = null; }, 8000);
 });
 document.getElementById("undo").addEventListener("click", () => {
-  if (!lastCleared) return;
-  rx = lastCleared.rx; state = lastCleared.state; opd.n = lastCleared.n;
-  lastCleared = null; undoBar.hidden = true; renderRx(); update();
+  if (!lastCleared) return; S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; update();
 });
+
+// ===== Print sheet =====
+const printSheet = document.getElementById("print");
+const pName = document.getElementById("p-name"), pAge = document.getElementById("p-age"), pComplaint = document.getElementById("p-complaint");
+pName.addEventListener("input", () => { S.name = pName.value; save(); });
+pAge.addEventListener("input", () => { S.age = pAge.value; save(); });
+pComplaint.addEventListener("input", () => { S.complaint = pComplaint.value; save(); renderPrintChips(); });
+function renderPrintChips() {
+  const parts = S.complaint.split(",").map(s => s.trim()).filter(Boolean);
+  const lower = parts.map(s => s.toLowerCase());
+  const cc = document.getElementById("complaint-chips");
+  cc.replaceChildren(...COMPLAINTS.map(c => {
+    const b = el("button", "mini" + (lower.includes(c.toLowerCase()) ? " on" : ""), c); b.type = "button";
+    b.addEventListener("click", () => {
+      const p = lower.includes(c.toLowerCase()) ? parts.filter(s => s.toLowerCase() !== c.toLowerCase()) : parts.concat(c);
+      S.complaint = p.join(", "); pComplaint.value = S.complaint; save(); renderPrintChips();
+    });
+    return b;
+  }));
+  chipRow(document.getElementById("follow-chips"), FOLLOW.map(f => ({ k: f.d, label: f.label })), S.follow, v => { S.follow = v; save(); renderPrintChips(); }, o => o.label);
+  const ac = document.getElementById("advice-chips");
+  ac.replaceChildren(...ADVICE.map(a => {
+    const b = el("button", "mini" + (S.advice.includes(a.k) ? " on" : ""), a.en); b.type = "button";
+    b.addEventListener("click", () => { S.advice = S.advice.includes(a.k) ? S.advice.filter(k => k !== a.k) : S.advice.concat(a.k); save(); renderPrintChips(); });
+    return b;
+  }));
+}
+document.getElementById("btn-print").addEventListener("click", () => {
+  pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaint; renderPrintChips(); printSheet.hidden = false;
+});
+document.getElementById("print-close").addEventListener("click", () => { printSheet.hidden = true; });
 
 // ===== Settings =====
 const settingsSheet = document.getElementById("settings");
 const sIds = { clinic: "s-clinic", doctor: "s-doctor", width: "s-width", top: "s-top", left: "s-left", right: "s-right", pad: "s-pad" };
 Object.entries(sIds).forEach(([k, id]) => {
-  const inp = document.getElementById(id);
-  inp.value = settings[k];
+  const inp = document.getElementById(id); inp.value = settings[k];
   inp.addEventListener("input", () => { settings[k] = ["top", "left", "right"].includes(k) ? (parseFloat(inp.value) || 0) : inp.value; store.set("cb-settings", settings); });
 });
 document.getElementById("open-settings").addEventListener("click", () => { settingsSheet.hidden = false; });
@@ -877,15 +747,15 @@ document.getElementById("settings-close").addEventListener("click", () => { sett
 
 // ===== Printable prescription =====
 function rxDoc() {
-  const total = billLines().reduce((s, l) => s + l.amt, 0);
-  const follow = rx.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + rx.follow); return d; })() : null;
-  const advice = ADVICE.filter(a => rx.advice.includes(a.k)).map(a => ({ en: a.en, ur: a.ur }));
-  if (rx.adviceText.trim()) advice.push({ en: rx.adviceText.trim(), ur: "" });
+  const { net } = totals();
+  const follow = S.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + S.follow); return d; })() : null;
   return {
-    no: opd.n, date: fmtDate(new Date()), name: rx.name.trim(), age: rx.age.trim(), complaint: rx.complaint.trim(),
-    meds: rx.meds.map(medLines), advice,
-    follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(rx.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
-    code: total > 0 ? billCode(chargeAmount(total)) : "",
+    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim(), complaint: S.complaint.trim(),
+    meds: S.meds.map(medLines),
+    procs: PROCS.filter(p => S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
+    advice: ADVICE.filter(a => S.advice.includes(a.k)),
+    follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(S.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
+    code: net > 0 ? billCode(net) : "",
   };
 }
 function docHtml(doc, mode) {
@@ -896,7 +766,7 @@ function docHtml(doc, mode) {
          ${settings.clinic ? `<div style="font-weight:700;font-size:${fs + 3}pt">${esc(settings.clinic)}</div>` : ""}
          ${settings.doctor ? `<div style="font-size:${fs}pt">${esc(settings.doctor)}</div>` : ""}</div>` : "";
   const top = `<div style="display:flex;justify-content:space-between;gap:3mm;font-size:${fs}pt">
-      <span><b>${esc(doc.name || "")}</b>${doc.age ? ` &nbsp;Age: ${esc(doc.age)}` : ""}</span>
+      <span><b>${esc(doc.name)}</b>${doc.age ? ` &nbsp;Age: ${esc(doc.age)}` : ""}</span>
       <span style="white-space:nowrap">No. <b>${doc.no}</b> &nbsp;${doc.date}</span></div>`;
   const complaint = doc.complaint ? `<div style="font-size:${fs}pt;margin-top:2mm">C/O: ${esc(doc.complaint)}</div>` : "";
   const meds = doc.meds.length ? `<div style="font-size:${fs + 4}pt;font-weight:700;margin-top:3mm">Rx</div>` + doc.meds.map((m, i) => `
@@ -904,47 +774,44 @@ function docHtml(doc, mode) {
         <div style="font-size:${fs + 1}pt;font-weight:700">${i + 1}. ${esc(m.en)}</div>
         ${m.ur ? `<div class="p-ur" style="font-size:${fs + 1}pt;line-height:1.9">${esc(m.ur)}</div>` : ""}
       </div>`).join("") : "";
+  const procs = doc.procs.length ? `<div style="margin-top:2mm;font-size:${fs}pt">Given: ${esc(doc.procs.join(", "))}</div>` : "";
   const advice = doc.advice.length ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>Advice:</b>` + doc.advice.map(a => `
-      <div>• ${esc(a.en)}${a.ur ? `<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div>` : ""}</div>`).join("") + `</div>` : "";
+      <div>• ${esc(a.en)}<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div></div>`).join("") + `</div>` : "";
   const follow = doc.follow ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>${esc(doc.follow.en)}</b><div class="p-ur" style="line-height:1.9">${esc(doc.follow.ur)}</div></div>` : "";
   const code = doc.code ? `<span style="display:inline-block;border:0.25mm solid #000;border-radius:50%;padding:0.4mm 1.3mm;font-size:6.5pt;line-height:1.2">${esc(doc.code)}</span>` : "";
+  const body = top + complaint + meds + procs + advice + follow;
   if (receipt) {
     const w = settings.width === "80" ? 80 : 58;
-    return `<div style="width:${w - 4}mm;padding:2mm">${head}${top}${complaint}${meds}${advice}${follow}
-      <div style="text-align:right;margin-top:3mm">${code}</div><div style="height:8mm"></div></div>`;
+    return `<div style="width:${w - 4}mm;padding:2mm">${head}${body}<div style="text-align:right;margin-top:3mm">${code}</div><div style="height:8mm"></div></div>`;
   }
-  return `<div style="padding:${settings.top}mm ${settings.right}mm 14mm ${settings.left}mm">${top}${complaint}${meds}${advice}${follow}</div>
+  return `<div style="padding:${settings.top}mm ${settings.right}mm 14mm ${settings.left}mm">${body}</div>
     ${code ? `<div style="position:fixed;bottom:8mm;right:${settings.right}mm">${code}</div>` : ""}`;
 }
 function doPrint(mode) {
-  if (!hasContent()) return;
-  const area = document.getElementById("print-area");
-  area.innerHTML = docHtml(rxDoc(), mode);
+  document.getElementById("print-area").innerHTML = docHtml(rxDoc(), mode);
   document.getElementById("page-style").textContent = mode === "receipt"
-    ? `@page { size: ${settings.width === "80" ? 80 : 58}mm auto; margin: 0; }`
-    : `@page { size: ${settings.pad}; margin: 0; }`;
+    ? `@page { size: ${settings.width === "80" ? 80 : 58}mm auto; margin: 0; }` : `@page { size: ${settings.pad}; margin: 0; }`;
   try { window.print(); } catch (e) {}
 }
 document.getElementById("print-pad").addEventListener("click", () => doPrint("pad"));
 document.getElementById("print-receipt").addEventListener("click", () => doPrint("receipt"));
 
-// ===== Picture (for WhatsApp or a printer app) =====
+// ===== Picture (WhatsApp or a printer app) =====
 function drawPicture(doc) {
   const W = settings.width === "80" ? 576 : 384, pad = 16, base = settings.width === "80" ? 24 : 18;
-  const urFont = `"Noto Nastaliq Urdu", "Geeza Pro", "Jameel Noori Nastaleeq", serif`;
-  const latin = `Arial, Helvetica, sans-serif`;
-  const blocks = [];
-  if (settings.clinic) blocks.push({ t: settings.clinic, s: base + 6, b: true, a: "center" });
-  if (settings.doctor) blocks.push({ t: settings.doctor, s: base - 2, a: "center" });
-  if (settings.clinic || settings.doctor) blocks.push({ rule: true });
-  blocks.push({ t: `No. ${doc.no}    ${doc.date}`, s: base - 2 });
-  if (doc.name || doc.age) blocks.push({ t: `${doc.name}${doc.age ? "   Age: " + doc.age : ""}`, s: base, b: true });
-  if (doc.complaint) blocks.push({ t: "C/O: " + doc.complaint, s: base - 1 });
-  if (doc.meds.length) blocks.push({ t: "Rx", s: base + 6, b: true, gap: 8 });
-  doc.meds.forEach((m, i) => { blocks.push({ t: `${i + 1}. ${m.en}`, s: base, b: true, gap: 6 }); if (m.ur) blocks.push({ t: m.ur, s: base, ur: true }); });
-  if (doc.advice.length) { blocks.push({ t: "Advice:", s: base - 1, b: true, gap: 8 }); doc.advice.forEach(a => { blocks.push({ t: "• " + a.en, s: base - 1 }); if (a.ur) blocks.push({ t: a.ur, s: base - 1, ur: true }); }); }
-  if (doc.follow) { blocks.push({ t: doc.follow.en, s: base - 1, b: true, gap: 8 }); blocks.push({ t: doc.follow.ur, s: base - 1, ur: true }); }
-
+  const urFont = `"Noto Nastaliq Urdu", "Geeza Pro", "Jameel Noori Nastaleeq", serif`, latin = `Arial, Helvetica, sans-serif`;
+  const B = [];
+  if (settings.clinic) B.push({ t: settings.clinic, s: base + 6, b: true, a: "center" });
+  if (settings.doctor) B.push({ t: settings.doctor, s: base - 2, a: "center" });
+  if (settings.clinic || settings.doctor) B.push({ rule: true });
+  B.push({ t: `No. ${doc.no}    ${doc.date}`, s: base - 2 });
+  if (doc.name || doc.age) B.push({ t: `${doc.name}${doc.age ? "   Age: " + doc.age : ""}`, s: base, b: true });
+  if (doc.complaint) B.push({ t: "C/O: " + doc.complaint, s: base - 1 });
+  if (doc.meds.length) B.push({ t: "Rx", s: base + 6, b: true, gap: 8 });
+  doc.meds.forEach((m, i) => { B.push({ t: `${i + 1}. ${m.en}`, s: base, b: true, gap: 6 }); if (m.ur) B.push({ t: m.ur, s: base, ur: true }); });
+  if (doc.procs.length) B.push({ t: "Given: " + doc.procs.join(", "), s: base - 1, gap: 6 });
+  if (doc.advice.length) { B.push({ t: "Advice:", s: base - 1, b: true, gap: 8 }); doc.advice.forEach(a => { B.push({ t: "• " + a.en, s: base - 1 }); B.push({ t: a.ur, s: base - 1, ur: true }); }); }
+  if (doc.follow) { B.push({ t: doc.follow.en, s: base - 1, b: true, gap: 8 }); B.push({ t: doc.follow.ur, s: base - 1, ur: true }); }
   const c = document.createElement("canvas"), ctx = c.getContext("2d");
   const fontOf = bl => `${bl.b ? "700 " : ""}${bl.s}px ${bl.ur ? urFont : latin}`;
   const wrap = bl => {
@@ -954,9 +821,8 @@ function drawPicture(doc) {
     if (line) out.push(line); return out;
   };
   let h = pad;
-  const laid = blocks.map(bl => { if (bl.rule) { h += 10; return bl; } const lines = wrap(bl); const lh = bl.s * (bl.ur ? 2.0 : 1.35); h += (bl.gap || 0) + lines.length * lh; return Object.assign({ lines, lh }, bl); });
-  h += 50;
-  c.width = W; c.height = Math.ceil(h);
+  const laid = B.map(bl => { if (bl.rule) { h += 10; return bl; } const lines = wrap(bl), lh = bl.s * (bl.ur ? 2.0 : 1.35); h += (bl.gap || 0) + lines.length * lh; return Object.assign({ lines, lh }, bl); });
+  c.width = W; c.height = Math.ceil(h + 50);
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, c.height); ctx.fillStyle = "#000"; ctx.textBaseline = "top";
   let y = pad;
   laid.forEach(bl => {
@@ -977,9 +843,7 @@ function drawPicture(doc) {
   return c;
 }
 document.getElementById("share-img").addEventListener("click", () => {
-  if (!hasContent()) return;
-  const doc = rxDoc();
-  const url = drawPicture(doc).toDataURL("image/png");
+  const doc = rxDoc(), url = drawPicture(doc).toDataURL("image/png");
   const bin = atob(url.split(",")[1]), arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   const file = new File([arr], `prescription-${doc.no}.png`, { type: "image/png" });
@@ -990,7 +854,7 @@ document.getElementById("share-img").addEventListener("click", () => {
 document.getElementById("img-close").addEventListener("click", () => { document.getElementById("img-view").hidden = true; });
 
 // ===== Start =====
-showMeds(); renderRx(); setView(view); update();
+showMeds(); update();
 </script>
 
 <script>
