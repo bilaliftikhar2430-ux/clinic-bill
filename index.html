@@ -83,6 +83,10 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .cchips .mini { padding: 8px 10px; font-size: 15px; }
 .advice-line { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .advice-line b { color: var(--save); }
+.inj-row { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.inj-row .nm { font-weight: 700; font-size: 17px; min-width: 0; overflow-wrap: break-word; }
+.inj-row .nm small { display: block; font-family: var(--font-num); font-size: 13px; color: var(--muted); font-weight: 500; }
+.inj-row .mini { min-width: 64px; }
 .nurse-box { border: 2px solid var(--ink); border-radius: 10px; padding: 8px 10px; font-size: 16px; line-height: 1.45; display: grid; gap: 2px; }
 .nurse-box b { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
 .btn {
@@ -277,6 +281,15 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
   </div>
 </div>
 
+<!-- Injection picker: give IM/IV, or add to drip -->
+<div class="scrim" id="injpick" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="injpick-title" style="max-height:88vh">
+    <div class="sheet-head"><h3 id="injpick-title"></h3><button class="big" id="injpick-done" type="button">Done</button></div>
+    <p id="injpick-note"></p>
+    <div id="injpick-list" style="display:grid;gap:6px"></div>
+  </div>
+</div>
+
 <!-- Print sheet -->
 <div class="scrim" id="print" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="print-title">
@@ -332,8 +345,8 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
 // ===== Rates (as given by the doctor). perTab items are charged by tablets dispensed. =====
 const FEES = [0, 300, 400, 500];
 const PROCS = [
-  { id: "inj", name: "Inj", price: 150 },
-  { id: "drip", name: "Drip", price: 850, pick: true },
+  { id: "inj", name: "Inj", price: 150, pick: "inj" },
+  { id: "drip", name: "Drip", price: 850, pick: "drip" },
   { id: "neb", name: "Nebs", price: 200 },
   { id: "dress", name: "Dressing", price: 200 },
 ];
@@ -478,22 +491,25 @@ const ADVICE_FOR = {
   "Stomach pain": ["oily", "light"], "Diarrhea": ["ors", "light", "oily"], "Vomiting": ["ors", "light"],
   "BP": ["salt", "oily", "walk"], "Sugar": ["sweet", "walk"], "Allergy": ["dust", "cold"],
 };
+// Advice that suits the typed age. No age typed = treated as adult.
+function ageOk(k) {
+  const n = parseFloat(S.age), age = Number.isFinite(n) ? n : 30;
+  if (k === "breast") return age <= 2;                       // mother's feed: babies only
+  if (k === "gargle" || k === "steam") return age > 5;       // no gargles or steam for small children
+  if (k === "walk") return age >= 13;
+  return true;
+}
 function autoAdvice() {
-  const age = parseFloat(S.age);
   const keys = new Set();
   S.complaints.forEach(c => (ADVICE_FOR[c] || []).forEach(k => keys.add(k)));
-  if (Number.isFinite(age)) {
-    if (age <= 5) { keys.delete("gargle"); keys.delete("steam"); }  // small children: no gargles, no steam
-    if (age < 13) keys.delete("walk");
-    if (age <= 2 && S.complaints.length) keys.add("breast");
-  }
+  if (S.complaints.length) keys.add("breast");
   return keys;
 }
 function effectiveAdvice() {
   const keys = autoAdvice();
   S.adviceOff.forEach(k => keys.delete(k));
   S.adviceAdd.forEach(k => keys.add(k));
-  return ADVICE.filter(a => keys.has(a.k));
+  return ADVICE.filter(a => keys.has(a.k) && ageOk(a.k));
 }
 const FOLLOW = [ { d: 3, label: "3 days" }, { d: 5, label: "5 days" }, { d: 7, label: "1 week" }, { d: 14, label: "2 weeks" }, { d: 30, label: "1 month" } ];
 
@@ -579,9 +595,10 @@ const procBox = document.getElementById("procs"), procBtns = {};
 PROCS.forEach(p => {
   const b = el("button", "btn", p.name); b.type = "button"; b.append(el("small", null, String(p.price)));
   const badge = el("span", "badge"); badge.hidden = true; b.append(badge);
-  if (p.pick) b.addEventListener("click", () => askNumber({ title: "Which drip?", noInput: true,
+  if (p.pick === "drip") b.addEventListener("click", () => askNumber({ title: "Which drip?", noInput: true,
     quick: DRIPS.map(d => ({ label: d.f === "Inf" ? d.name + " infusion" : d.name, value: d.id })),
-    onPick: id => askDripPrice(ITEMS[id], v => addMed(ITEMS[id], null, v)) }));
+    onPick: id => askDripPrice(ITEMS[id], v => { addMed(ITEMS[id], null, v); openInjPick("drip"); }) }));
+  else if (p.pick === "inj") b.addEventListener("click", () => openInjPick("give"));
   else b.addEventListener("click", () => { S.qty[p.id] = (S.qty[p.id] || 0) + 1; update(); });
   procBox.append(b); procBtns[p.id] = { b, badge };
 });
@@ -596,6 +613,44 @@ const discBtns = DISCOUNTS.map(d => {
   b.addEventListener("click", () => { S.disc = d; S.override = null; update(); });
   discBox.append(b); return { d, b };
 });
+
+// ===== Injection picker =====
+const INJECTIONS = TABS.find(t => t.key === "Inj").items.filter(it => it.f === "Inj" && !it.doses);
+const injMeds = () => S.meds.filter(m => m.f === "Inj" && !(ITEMS[m.id] && ITEMS[m.id].doses));
+const injSheet = document.getElementById("injpick");
+let injMode = "give";
+function setInjRoute(it, route) {
+  const m = S.meds.find(x => x.id === it.id);
+  if (m && m.dose === route) { S.meds = S.meds.filter(x => x !== m); update(); renderInjPick(); return; }  // tap again = remove
+  if (m) { m.dose = route; update(); renderInjPick(); return; }
+  if (priceOf(it) == null) {
+    askNumber({ title: `Price of ${it.name}?`, note: "Asked only once. The app remembers it.", onPick: v => { prices[it.id] = v; store.set("cb-prices", prices); setInjRoute(it, route); } });
+    return;
+  }
+  S.meds.push({ uid: uidSeq++, id: it.id, name: it.name, f: "Inj", dose: route, days: null, food: null, given: true });
+  update(); renderInjPick();
+}
+function renderInjPick() {
+  const drip = injMode === "drip";
+  document.getElementById("injpick-title").textContent = drip ? "Add to this drip" : "Injections to give";
+  document.getElementById("injpick-note").textContent = drip ? "Tick the injections the nurse should put in the drip. They are included in the drip price." : "Tap IM or IV. Tap again to remove.";
+  const routes = drip ? ["In drip"] : ["IM", "IV"];
+  document.getElementById("injpick-list").replaceChildren(...INJECTIONS.map(it => {
+    const row = el("div", "inj-row");
+    const nm = el("div", "nm", it.name); nm.append(el("small", null, priceOf(it) != null ? "Rs " + priceOf(it) : "set price"));
+    row.append(nm);
+    if (routes.length === 1) row.append(el("span"));
+    const m = S.meds.find(x => x.id === it.id);
+    routes.forEach(r => {
+      const b = el("button", "mini" + (m && m.dose === r ? " on" : ""), r === "In drip" ? (m && m.dose === r ? "✓ Added" : "Add") : r); b.type = "button";
+      b.addEventListener("click", () => setInjRoute(it, r));
+      row.append(b);
+    });
+    return row;
+  }));
+}
+function openInjPick(mode) { injMode = mode; renderInjPick(); injSheet.hidden = false; }
+document.getElementById("injpick-done").addEventListener("click", () => { injSheet.hidden = true; });
 
 // Drip price: chosen by the doctor each time; injections put in the drip are covered by it.
 function askDripPrice(it, done, current) {
@@ -767,7 +822,7 @@ function update() {
   feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
   const custom = S.fee != null && !FEES.includes(S.fee);
   feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
-  PROCS.forEach(p => { const q = p.pick ? S.meds.filter(m => m.f === "Drip" || m.f === "Inf").length : (S.qty[p.id] || 0), r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
+  PROCS.forEach(p => { const q = p.pick === "drip" ? S.meds.filter(m => m.f === "Drip" || m.f === "Inf").length : p.pick === "inj" ? injMeds().filter(m => m.dose !== "In drip").length : (S.qty[p.id] || 0), r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
   otherBtn.classList.toggle("on", S.extras.length > 0); otherBadge.hidden = S.extras.length < 2; otherBadge.textContent = "×" + S.extras.length;
   discBtns.forEach(({ d, b }) => b.classList.toggle("on", S.disc === d && d > 0));
 
@@ -882,7 +937,7 @@ function renderPrintChips() {
   chipRow(document.getElementById("follow-chips"), FOLLOW.map(f => ({ k: f.d, label: f.label })), S.follow, v => { S.follow = v; save(); renderPrintChips(); }, o => o.label);
   const ac = document.getElementById("advice-chips");
   const on = new Set(effectiveAdvice().map(a => a.k));
-  ac.replaceChildren(...ADVICE.map(a => {
+  ac.replaceChildren(...ADVICE.filter(a => ageOk(a.k)).map(a => {
     const b = el("button", "mini" + (on.has(a.k) ? " on" : ""), a.en); b.type = "button";
     b.addEventListener("click", () => {
       if (on.has(a.k)) { if (S.adviceAdd.includes(a.k)) S.adviceAdd = S.adviceAdd.filter(k => k !== a.k); else S.adviceOff = S.adviceOff.concat(a.k); }
