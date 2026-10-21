@@ -83,6 +83,8 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .cchips .mini { padding: 8px 10px; font-size: 15px; }
 .advice-line { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .advice-line b { color: var(--save); }
+.nurse-box { border: 2px solid var(--ink); border-radius: 10px; padding: 8px 10px; font-size: 16px; line-height: 1.45; display: grid; gap: 2px; }
+.nurse-box b { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
 .btn {
   position: relative; min-width: 0; padding: 12px 2px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
   font-weight: 700; font-size: 16px; line-height: 1.15; text-align: center;
@@ -213,6 +215,7 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
     </div>
     <div class="cchips" id="complaint-chips"></div>
     <div class="advice-line" id="advice-line" hidden></div>
+    <div class="nurse-box" id="nurse-box" hidden></div>
   </section>
   <section class="card">
     <div class="lbl">Fee</div>
@@ -840,7 +843,34 @@ function renderComplaintChips() {
     return b;
   }));
 }
+// What the nurse must do: drip with the injections to add in it, then IM and IV injections.
+const isNurseItem = m => m.f === "Drip" || m.f === "Inf" || (m.f === "Inj" && !(ITEMS[m.id] && ITEMS[m.id].doses));
+function nurseLines() {
+  const drips = S.meds.filter(m => m.f === "Drip" || m.f === "Inf");
+  const inj = S.meds.filter(m => m.f === "Inj" && !(ITEMS[m.id] && ITEMS[m.id].doses));
+  const name = m => m.name + (m.days ? ` (${m.days} days)` : "");
+  const inDrip = inj.filter(m => m.dose === "In drip").map(name);
+  const out = [];
+  drips.forEach((d, i) => {
+    const label = (d.f === "Inf" ? d.name + " infusion" : "Drip " + d.name) + (d.dose ? ` ${d.dose}` : "");
+    out.push(i === 0 && inDrip.length ? `${label} + add: ${inDrip.join(", ")}` : label);
+  });
+  if (!drips.length && inDrip.length) out.push(`Add in drip: ${inDrip.join(", ")}`);
+  const im = inj.filter(m => m.dose === "IM").map(name), iv = inj.filter(m => m.dose === "IV").map(name);
+  const other = inj.filter(m => !["In drip", "IM", "IV"].includes(m.dose)).map(name);
+  if (im.length) out.push(`Give IM: ${im.join(", ")}`);
+  if (iv.length) out.push(`Give IV: ${iv.join(", ")}`);
+  if (other.length) out.push(`Give inj: ${other.join(", ")}`);
+  PROCS.filter(p => !p.pick && p.id !== "inj" && S.qty[p.id]).forEach(p => out.push(p.name === "Nebs" ? "Nebulize" : p.name));
+  return out;
+}
+function renderNurseBox() {
+  const lines = nurseLines(), box = document.getElementById("nurse-box");
+  box.hidden = lines.length === 0;
+  box.replaceChildren(el("b", null, "Nurse"), ...lines.map(l => el("div", null, "• " + l)));
+}
 function renderAdviceLine() {
+  renderNurseBox();
   const adv = effectiveAdvice(), line = document.getElementById("advice-line");
   line.hidden = adv.length === 0;
   line.replaceChildren(el("b", null, "Advice: "), document.createTextNode(adv.map(a => a.en).join(" · ")));
@@ -883,7 +913,8 @@ function rxDoc() {
   const follow = S.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + S.follow); return d; })() : null;
   return {
     no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaints.concat(S.complaintText.trim() ? [S.complaintText.trim()] : []).join(", "),
-    meds: S.meds.map(medLines),
+    meds: S.meds.filter(m => !isNurseItem(m)).map(medLines),
+    nurse: nurseLines(),
     procs: PROCS.filter(p => !p.pick && S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
     advice: effectiveAdvice(),
     follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(S.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
@@ -911,7 +942,9 @@ function docHtml(doc, mode) {
       <div>• ${esc(a.en)}<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div></div>`).join("") + `</div>` : "";
   const follow = doc.follow ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>${esc(doc.follow.en)}</b><div class="p-ur" style="line-height:1.9">${esc(doc.follow.ur)}</div></div>` : "";
   const code = doc.code ? `<span style="display:inline-block;border:0.25mm solid #000;border-radius:50%;padding:0.4mm 1.3mm;font-size:6.5pt;line-height:1.2">${esc(doc.code)}</span>` : "";
-  const body = top + complaint + meds + procs + advice + follow;
+  const nurse = doc.nurse.length ? `<div style="margin-top:3mm;border:0.4mm solid #000;padding:1.5mm 2mm;font-size:${fs + 1}pt;break-inside:avoid">
+      <div style="font-weight:700">Nurse:</div>${doc.nurse.map(l => `<div>• ${esc(l)}</div>`).join("")}</div>` : "";
+  const body = top + complaint + nurse + meds + advice + follow;
   if (receipt) {
     const w = settings.width === "80" ? 80 : 58;
     return `<div style="width:${w - 4}mm;padding:2mm">${head}${body}<div style="text-align:right;margin-top:3mm">${code}</div><div style="height:8mm"></div></div>`;
@@ -939,9 +972,9 @@ function drawPicture(doc) {
   B.push({ t: `No. ${doc.no}    ${doc.date}`, s: base - 2 });
   if (doc.name || doc.age) B.push({ t: `${doc.name}${doc.age ? "   Age: " + doc.age : ""}`, s: base, b: true });
   if (doc.complaint) B.push({ t: "C/O: " + doc.complaint, s: base - 1 });
+  if (doc.nurse.length) { B.push({ t: "Nurse:", s: base, b: true, gap: 8 }); doc.nurse.forEach(l => B.push({ t: "• " + l, s: base, b: true })); }
   if (doc.meds.length) B.push({ t: "Rx", s: base + 6, b: true, gap: 8 });
   doc.meds.forEach((m, i) => { B.push({ t: `${i + 1}. ${m.en}`, s: base, b: true, gap: 6 }); if (m.ur) B.push({ t: m.ur, s: base, ur: true }); });
-  if (doc.procs.length) B.push({ t: "Given: " + doc.procs.join(", "), s: base - 1, gap: 6 });
   if (doc.advice.length) { B.push({ t: "Advice:", s: base - 1, b: true, gap: 8 }); doc.advice.forEach(a => { B.push({ t: "• " + a.en, s: base - 1 }); B.push({ t: a.ur, s: base - 1, ur: true }); }); }
   if (doc.follow) { B.push({ t: doc.follow.en, s: base - 1, b: true, gap: 8 }); B.push({ t: doc.follow.ur, s: base - 1, ur: true }); }
   const c = document.createElement("canvas"), ctx = c.getContext("2d");
