@@ -995,7 +995,7 @@ const GI = ["Stomach pain", "Diarrhea", "Vomiting", "Nausea", "Heartburn", "Bloa
 const PROTOCOLS = [
   { id: "a-uti", title: "Usual: adult fever + burning micturition", drip: true,
     when: a => !a.child && a.has("Fever") && a.has("Burning micturition"),
-    items: [["i-nospa", "IM"], ["i-fr", "In drip"], ["t-ak75"], ["s-citral"], ["t-riam"], ["c-xi"], ["s-s100"]],
+    items: [["i-nospa", "IM"], ["i-fr", "IM"], ["t-ak75"], ["s-citral"], ["t-riam"], ["c-xi"], ["s-s100"]],
     pick: [["t-crn", "t-voxiquij"]], optional: ["o-cranberry"] },
   { id: "a-fever-gi", title: "Usual: adult fever + stomach",
     when: a => !a.child && a.has("Fever") && a.gi,
