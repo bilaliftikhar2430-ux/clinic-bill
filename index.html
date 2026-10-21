@@ -84,6 +84,8 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .cchips .more { border-style: dashed; color: var(--pen); }
 .cchips .warn.on { background: var(--danger); border-color: var(--danger); color: #fff; }
 .cgroup .lbl { margin-bottom: 4px; }
+.sets .mini { font-size: 16px; padding: 11px 12px; }
+.sets .mini.set { border-color: var(--pen); }
 .advice-line { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .advice-line b { color: var(--save); }
 .inj-row { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
@@ -240,6 +242,7 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
   </section>
   <section class="card">
     <div class="lbl" style="margin:0">Medicines</div>
+    <div class="cchips sets" id="quick-sets"></div>
     <div class="search-box">
       <input id="search" class="search" type="search" placeholder="Type to find… (mon, eso)" autocomplete="off">
       <button class="search-x" id="search-x" type="button" aria-label="Clear search" hidden>×</button>
@@ -403,6 +406,7 @@ const TABS = [
     { id: "t-ma", name: "MA", price: 50 },
     { id: "t-montekarl", name: "Montekarl", perTab: { pack: 498, size: 14, quick: [7, 14] } },
     { id: "t-montit", name: "Montit", price: 400 },
+    { id: "t-piriton", name: "Piriton", price: 40 },
     { id: "t-recad", name: "Reca D", perTab: { pack: 750, size: 30, quick: [10, 20, 30] } },
     { id: "t-sp", name: "SP", price: 50 },
     { id: "t-voxiquij", name: "Voxiquij", price: 246 },
@@ -411,7 +415,7 @@ const TABS = [
   { key: "S", title: "Syrups", items: [
     { id: "s-cefod", name: "Cef OD DS", price: 385 },
     { id: "s-citral", name: "Citral", price: 121 },
-    { id: "s-com", name: "COM", price: 49 },
+    { id: "s-com", name: "CPM", price: 49 },
     { id: "s-cyrocin", name: "Cyrocin", price: 314 },
     { id: "s-doncid", name: "Doncid", price: 280 },
     { id: "s-feromalt", name: "Feromalt", price: 250 },
@@ -765,6 +769,46 @@ function addMed(it, customName, chosenPrice) {
   else { update(); openDose(m, true); }
 }
 
+// ===== Quick sets: the doctor's usual order, by age =====
+const SETS = {
+  adult: [
+    { label: "Fever", ids: ["t-ma", "t-sp", "t-gpep", "s-s100", "t-piriton", "c-xi"] },
+    { label: "+ CRN", ids: ["t-crn"], group: "abx" },
+    { label: "+ Cyrocin", ids: ["t-cyrocin"], group: "abx" },
+  ],
+  child: [
+    { label: "Fever", ids: ["s-fevotal", "s-navophen", "s-com"] },
+    { label: "Cough", ids: ["s-torax"] },
+    { label: "+ Cef OD DS", ids: ["s-cefod"], group: "abx" },
+    { label: "+ Cyrocin", ids: ["s-cyrocin"], group: "abx" },
+  ],
+};
+const isChild = () => { const n = parseFloat(S.age); return Number.isFinite(n) && n <= 12; };
+function addQuiet(it) {
+  if (S.meds.some(m => m.id === it.id)) return;
+  const m = { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true };
+  const mem = memory[memKey(m)];
+  if (mem) Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food });
+  S.meds.push(m);
+}
+function tapSet(set, list) {
+  const all = set.ids.every(id => S.meds.some(m => m.id === id));
+  if (all) { S.meds = S.meds.filter(m => !set.ids.includes(m.id)); update(); return; }
+  if (set.group) list.filter(o => o.group === set.group && o !== set).forEach(o => { S.meds = S.meds.filter(m => !o.ids.includes(m.id)); });
+  set.ids.forEach(id => addQuiet(ITEMS[id]));
+  update();
+  const noDose = S.meds.filter(m => set.ids.includes(m.id) && !m.dose).map(m => m.name);
+  if (noDose.length) toast(`Set dose once for: ${noDose.join(", ")} (tap green chip)`);
+}
+function renderQuickSets() {
+  const list = isChild() ? SETS.child : SETS.adult;
+  document.getElementById("quick-sets").replaceChildren(...list.map(set => {
+    const on = set.ids.every(id => S.meds.some(m => m.id === id));
+    const label = set.ids.length > 1 ? `${set.label}: ${set.ids.map(id => ITEMS[id].name).join(" · ")}` : set.label;
+    return chip(label, on, () => tapSet(set, list), "set");
+  }));
+}
+
 // Dose sheet
 const doseSheet = document.getElementById("dose");
 let doseMed = null;
@@ -870,7 +914,7 @@ const opdNum = document.getElementById("opd-num");
 let prevNet = 0;
 function update() {
   opdNum.textContent = opd.n;
-  renderComplaintChips(); renderAdviceLine();
+  renderComplaintChips(); renderAdviceLine(); renderQuickSets();
   feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
   const custom = S.fee != null && !FEES.includes(S.fee);
   feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
