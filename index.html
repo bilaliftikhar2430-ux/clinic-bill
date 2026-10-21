@@ -371,9 +371,7 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
       <label class="set">Left<input id="s-left" class="field" type="number" inputmode="numeric"></label>
       <label class="set">Right<input id="s-right" class="field" type="number" inputmode="numeric"></label>
     </div>
-    <label class="set">Pad size
-      <select id="s-pad" class="field"><option value="A5">A5 (half A4)</option><option value="A4">A4</option></select>
-    </label>
+    <p>Pad prints on one A4 page. Long prescriptions shrink to fit.</p>
   </div>
 </div>
 
@@ -1152,7 +1150,7 @@ document.getElementById("print-close").addEventListener("click", () => { printSh
 
 // ===== Settings =====
 const settingsSheet = document.getElementById("settings");
-const sIds = { clinic: "s-clinic", doctor: "s-doctor", width: "s-width", top: "s-top", left: "s-left", right: "s-right", pad: "s-pad" };
+const sIds = { clinic: "s-clinic", doctor: "s-doctor", width: "s-width", top: "s-top", left: "s-left", right: "s-right" };
 Object.entries(sIds).forEach(([k, id]) => {
   const inp = document.getElementById(id); inp.value = settings[k];
   inp.addEventListener("input", () => { settings[k] = ["top", "left", "right"].includes(k) ? (parseFloat(inp.value) || 0) : inp.value; store.set("cb-settings", settings); });
@@ -1189,14 +1187,14 @@ function docHtml(doc, mode) {
   const complaint = (doc.como ? `<div style="font-size:${fs}pt;margin-top:2mm">K/C/O: ${esc(doc.como)}</div>` : "")
     + (doc.allergy ? `<div style="font-size:${fs}pt;margin-top:1mm;font-weight:700">Drug allergy: ${esc(doc.allergy)}</div>` : "")
     + (doc.complaint ? `<div style="font-size:${fs}pt;margin-top:2mm">C/O: ${esc(doc.complaint)}</div>` : "");
-  const meds = doc.meds.length ? `<div style="font-size:${fs + 4}pt;font-weight:700;margin-top:3mm">Rx</div>` + doc.meds.map((m, i) => `
+  const meds = doc.meds.length ? `<div style="font-size:${fs + 4}pt;font-weight:700;margin-top:3mm">Rx</div><div class="p-meds" style="column-gap:6mm">` + doc.meds.map((m, i) => `
       <div style="margin-top:2mm;break-inside:avoid">
         <div style="font-size:${fs + 1}pt;font-weight:700">${i + 1}. ${esc(m.en)}</div>
         ${m.ur ? `<div class="p-ur" style="font-size:${fs + 1}pt;line-height:1.9">${esc(m.ur)}</div>` : ""}
-      </div>`).join("") : "";
+      </div>`).join("") + `</div>` : "";
   const procs = doc.procs.length ? `<div style="margin-top:2mm;font-size:${fs}pt">Given: ${esc(doc.procs.join(", "))}</div>` : "";
-  const advice = doc.advice.length ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>Advice:</b>` + doc.advice.map(a => `
-      <div>• ${esc(a.en)}<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div></div>`).join("") + `</div>` : "";
+  const advice = doc.advice.length ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>Advice:</b><div class="p-adv" style="column-gap:6mm">` + doc.advice.map(a => `
+      <div style="break-inside:avoid">• ${esc(a.en)}<div class="p-ur" style="line-height:1.9">${esc(a.ur)}</div></div>`).join("") + `</div></div>` : "";
   const follow = doc.follow ? `<div style="margin-top:3mm;font-size:${fs}pt"><b>${esc(doc.follow.en)}</b><div class="p-ur" style="line-height:1.9">${esc(doc.follow.ur)}</div></div>` : "";
   const code = doc.code ? `<span style="display:inline-block;border:0.25mm solid #000;border-radius:50%;padding:0.4mm 1.3mm;font-size:6.5pt;line-height:1.2">${esc(doc.code)}</span>` : "";
   const nurse = doc.nurse.length ? `<div style="margin-top:3mm;border:0.4mm solid #000;padding:1.5mm 2mm;font-size:${fs + 1}pt;break-inside:avoid">
@@ -1206,13 +1204,38 @@ function docHtml(doc, mode) {
     const w = settings.width === "80" ? 80 : 58;
     return `<div style="width:${w - 4}mm;padding:2mm">${head}${body}<div style="text-align:right;margin-top:3mm">${code}</div><div style="height:8mm"></div></div>`;
   }
-  return `<div style="padding:${settings.top}mm ${settings.right}mm 14mm ${settings.left}mm">${body}</div>
-    ${code ? `<div style="position:fixed;bottom:8mm;right:${settings.right}mm">${code}</div>` : ""}`;
+  return `<div class="a4" style="position:relative;width:210mm;height:296mm;overflow:hidden;box-sizing:border-box;padding:${settings.top}mm ${settings.right}mm 0 ${settings.left}mm">
+      <div class="a4-fit" style="transform-origin:0 0;box-sizing:border-box">${body}</div>
+      ${code ? `<div style="position:absolute;bottom:8mm;right:${settings.right}mm">${code}</div>` : ""}</div>`;
+}
+// Shrink the prescription (and use two columns when long) so it always fits one A4 page.
+function fitA4(area) {
+  const page = area.querySelector(".a4"), fit = area.querySelector(".a4-fit");
+  if (!page || !fit) return 1;
+  area.style.cssText = "display:block;position:absolute;left:-10000px;top:0;visibility:hidden";
+  const mm = 96 / 25.4, avail = page.clientHeight - (settings.top + 18) * mm;  // below the pad header, above the code
+  const fitsAt = sc => { fit.style.transform = `scale(${sc})`; fit.style.width = `${100 / sc}%`; return fit.scrollHeight * sc <= avail; };
+  const measure = () => {
+    // largest scale that still fits (binary search)
+    if (fitsAt(1)) return 1;
+    let lo = 0.3, hi = 1;
+    for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; if (fitsAt(mid)) lo = mid; else hi = mid; }
+    fitsAt(lo); return lo;
+  };
+  let sc = measure();
+  if (sc < 0.8) {
+    area.querySelectorAll(".p-meds, .p-adv").forEach(e => { e.style.columnCount = 2; });
+    sc = measure();
+  }
+  area.style.cssText = "";
+  return sc;
 }
 function doPrint(mode) {
-  document.getElementById("print-area").innerHTML = docHtml(rxDoc(), mode);
+  const area = document.getElementById("print-area");
+  area.innerHTML = docHtml(rxDoc(), mode);
+  if (mode !== "receipt") fitA4(area);
   document.getElementById("page-style").textContent = mode === "receipt"
-    ? `@page { size: ${settings.width === "80" ? 80 : 58}mm auto; margin: 0; }` : `@page { size: ${settings.pad}; margin: 0; }`;
+    ? `@page { size: ${settings.width === "80" ? 80 : 58}mm auto; margin: 0; }` : `@page { size: A4; margin: 0; }`;
   try { window.print(); } catch (e) {}
 }
 document.getElementById("print-pad").addEventListener("click", () => doPrint("pad"));
