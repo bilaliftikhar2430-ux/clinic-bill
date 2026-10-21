@@ -99,6 +99,17 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .rx-amt { font-family: var(--font-num); font-size: 15px; font-weight: 700; }
 .rx-x { width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; color: var(--danger); font-size: 24px; line-height: 1; }
 .rx-empty { color: var(--muted); font-size: 15px; margin: 0; }
+.suggest { border: 1.5px solid var(--save); background: var(--save-soft); border-radius: 12px; padding: 10px; display: grid; gap: 8px; margin-bottom: 4px; }
+.sg-head { display: flex; align-items: center; gap: 8px; }
+.sg-head b { flex: 1; min-width: 0; font-size: 16px; }
+.sg-add { padding: 10px 14px; border-radius: 10px; border: 0; background: var(--save); color: #fff; font-weight: 700; font-size: 16px; white-space: nowrap; }
+.sg-items { font-size: 15px; line-height: 1.45; }
+.sg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sg-row > span { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+.sg-row .mini { padding: 8px 11px; font-size: 15px; border-radius: 999px; background: var(--card); }
+.sg-row .mini.on { background: var(--save); border-color: var(--save); color: #fff; }
+.sg-done { font-size: 15px; color: var(--save); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.sg-done button { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 6px; }
 .card .lbl { margin: 0; }
 .patient-row { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
 .patient-row .field { padding: 12px; }
@@ -432,7 +443,8 @@ const TABS = [
     { id: "t-piriton", name: "Piriton", price: 40 },
     { id: "t-recad", name: "Reca D", perTab: { pack: 750, size: 30, quick: [10, 20, 30] } },
     { id: "t-sp", name: "SP", price: 50 },
-    { id: "t-voxiquij", name: "Voxiquij", price: 246 },
+    { id: "t-riam", name: "Riam", price: null },
+    { id: "t-voxiquij", name: "Voxiquin", price: 246 },
     { id: "t-zolard", name: "Zolard", price: 352 },
   ]},
   { key: "S", title: "Syrups", items: [
@@ -441,6 +453,7 @@ const TABS = [
     { id: "s-com", name: "CPM", price: 49 },
     { id: "s-cyrocin", name: "Cyrocin", price: 314 },
     { id: "s-doncid", name: "Doncid", price: 280 },
+    { id: "s-fegyn", name: "Fegyn", price: null },
     { id: "s-feromalt", name: "Feromalt", price: 250 },
     { id: "s-fevotal", name: "Fevotal 6+", price: 89 },
     { id: "s-fmd", name: "FMD", price: 100 },
@@ -619,7 +632,7 @@ function billCode(amount) {
 }
 
 // ===== State =====
-const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaints: [], como: [], allergy: [], allergyText: "", complaintText: "", follow: null, adviceAdd: [], adviceOff: [] });
+const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaints: [], como: [], allergy: [], allergyText: "", complaintText: "", follow: null, adviceAdd: [], adviceOff: [], protoDone: [], protoPick: {}, protoOpt: {} });
 let draft = store.get("cb-draft4", null);
 let S = draft && draft.day === todayKey() ? Object.assign(blank(), draft.s) : blank();
 let opd = store.get("cb-opd", null);
@@ -977,8 +990,107 @@ function rxRow(title, sub, amt, onTap, onRemove, needs) {
   row.append(main, el("span", "rx-amt", amt ? fmt(amt) : ""), x);
   return row;
 }
+// ===== The doctor's usual treatments, matched by complaint and age =====
+const GI = ["Stomach pain", "Diarrhea", "Vomiting", "Nausea", "Heartburn", "Bloating"];
+const PROTOCOLS = [
+  { id: "a-uti", title: "Usual: adult fever + burning micturition", drip: true,
+    when: a => !a.child && a.has("Fever") && a.has("Burning micturition"),
+    items: [["i-nospa", "IM"], ["i-fr", "In drip"], ["t-ak75"], ["s-citral"], ["t-riam"], ["c-xi"], ["s-s100"]],
+    pick: [["t-crn", "t-voxiquij"]], optional: ["o-cranberry"] },
+  { id: "a-fever-gi", title: "Usual: adult fever + stomach",
+    when: a => !a.child && a.has("Fever") && a.gi,
+    items: [["i-s1", "IM"], ["i-fr", "IM"], ["t-sp"], ["t-ma"], ["t-gpep"], ["s-s100"], ["c-xi"]],
+    pick: [["t-crn", "t-voxiquij"], ["c-esopep40", "c-esopep20", "t-zolard", "c-rapid"]], optional: ["s-mdl"] },
+  { id: "a-fever", title: "Usual: adult fever",
+    when: a => !a.child && a.has("Fever"),
+    items: [["i-s1", "IM"], ["i-fr", "IM"], ["t-sp"], ["t-ma"], ["t-gpep"], ["s-s100"]],
+    pick: [["t-crn", "t-voxiquij"]], optional: ["s-mdl"] },
+  { id: "c-diarrhea", title: "Usual: child with diarrhea",
+    when: a => a.child && a.has("Diarrhea"),
+    items: [["i-s1", "IM"], ["s-fevotal"], ["s-navophen"], ["s-fmd"], ["s-cyrocin", a => a.age >= 8 ? "1 tsf BD" : "½ tsf BD"]],
+    pick: [], optional: ["s-mdl"] },
+  { id: "c-fever", title: "Usual: child with fever",
+    when: a => a.child && (a.has("Fever") || a.has("Cough")),
+    items: [["i-s1", "IM"], ["s-fevotal"], ["s-navophen"], ["s-com"], ["s-cefod"], ["s-torax", null, a => a.has("Cough")]],
+    pick: [], optional: ["i-calcif", "s-fegyn", "s-feromalt"] },
+];
+function patientFacts() {
+  const n = parseFloat(S.age), keys = S.complaints.map(c => c.k);
+  return { age: Number.isFinite(n) ? n : 30, child: Number.isFinite(n) && n <= 12, has: k => keys.includes(k), gi: keys.some(k => GI.includes(k)) };
+}
+const matchedProtocol = () => { if (!S.complaints.length) return null; const a = patientFacts(); return PROTOCOLS.find(pr => pr.when(a)) || null; };
+const shortName = id => (FORM_LABEL[ITEMS[id].f] ? FORM_LABEL[ITEMS[id].f] + " " : "") + ITEMS[id].name;
+function protoList(pr) {
+  // [id, fixedDose] for everything that "Add all" will add
+  const a = patientFacts(), out = [];
+  pr.items.forEach(([id, dose, cond]) => { if (cond && !cond(a)) return; out.push([id, typeof dose === "function" ? dose(a) : dose]); });
+  pr.pick.forEach((grp, gi) => { const i = (S.protoPick[pr.id] || {})[gi] || 0; out.push([grp[i], null]); });
+  (S.protoOpt[pr.id] || []).forEach(id => out.push([id, null]));
+  return out;
+}
+function askPrices(ids, done) {
+  const id = ids.find(x => priceOf(ITEMS[x]) == null);
+  if (!id) { done(); return; }
+  askNumber({ title: `Price of ${ITEMS[id].name}?`, note: "Asked only once. The app remembers it.",
+    onPick: v => { prices[id] = v; store.set("cb-prices", prices); askPrices(ids, done); } });
+}
+function applyProtocol(pr) {
+  const list = protoList(pr);
+  const addAll = () => {
+    list.forEach(([id, dose]) => {
+      const it = ITEMS[id]; let m = S.meds.find(x => x.id === id);
+      if (!m) { m = { uid: uidSeq++, id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true }; const mem = memory[memKey(m)]; if (mem) Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food }); S.meds.push(m); }
+      if (dose) m.dose = dose;
+    });
+    S.protoDone = S.protoDone.concat(pr.id); update();
+    const noDose = S.meds.filter(m => list.some(([id]) => id === m.id) && !m.dose && m.f !== "Inj").map(m => m.name);
+    if (noDose.length) toast(`Set dose once for: ${noDose.join(", ")}`);
+  };
+  askPrices(list.map(([id]) => id), () => {
+    if (pr.drip && !S.meds.some(m => m.f === "Drip" || m.f === "Inf")) {
+      askNumber({ title: "Which drip?", noInput: true, quick: DRIPS.map(d => ({ label: d.f === "Inf" ? d.name + " infusion" : d.name, value: d.id })),
+        onPick: did => askDripPrice(ITEMS[did], v => { addMed(ITEMS[did], null, v); addAll(); }) });
+    } else addAll();
+  });
+}
+function undoProtocol(pr) {
+  const ids = protoList(pr).map(([id]) => id);
+  S.meds = S.meds.filter(m => !ids.includes(m.id));
+  S.protoDone = S.protoDone.filter(x => x !== pr.id); update();
+}
+function suggestBox() {
+  const pr = matchedProtocol(); if (!pr) return null;
+  const box = el("div", "suggest");
+  if (S.protoDone.includes(pr.id)) {
+    const d = el("div", "sg-done"); d.append(el("span", null, "✓ " + pr.title.replace("Usual: ", "") + " added"));
+    const u = el("button", null, "Undo"); u.type = "button"; u.addEventListener("click", () => undoProtocol(pr)); d.append(u);
+    box.append(d); return box;
+  }
+  const head = el("div", "sg-head"); head.append(el("b", null, pr.title));
+  const add = el("button", "sg-add", "Add all"); add.type = "button"; add.addEventListener("click", () => applyProtocol(pr)); head.append(add);
+  const a = patientFacts();
+  const base = pr.items.filter(([, , cond]) => !cond || cond(a)).map(([id, dose]) => shortName(id) + (typeof dose === "function" ? ` (${dose(a)})` : dose ? ` (${dose})` : ""));
+  box.append(head, el("div", "sg-items", (pr.drip ? "Drip · " : "") + base.join(" · ")));
+  pr.pick.forEach((grp, gi) => {
+    const row = el("div", "sg-row"); row.append(el("span", null, "Pick one"));
+    const cur = (S.protoPick[pr.id] || {})[gi] || 0;
+    grp.forEach((id, i) => row.append(chip(ITEMS[id].name, i === cur, () => { S.protoPick[pr.id] = Object.assign({}, S.protoPick[pr.id], { [gi]: i }); update(); })));
+    box.append(row);
+  });
+  if (pr.optional.length) {
+    const row = el("div", "sg-row"); row.append(el("span", null, "Also"));
+    const on = S.protoOpt[pr.id] || [];
+    pr.optional.forEach(id => row.append(chip("+ " + ITEMS[id].name, on.includes(id), () => {
+      S.protoOpt[pr.id] = on.includes(id) ? on.filter(x => x !== id) : on.concat(id); update();
+    })));
+    box.append(row);
+  }
+  return box;
+}
+
 function renderRxList() {
   const list = document.getElementById("rx-list"), out = [];
+  const sg = suggestBox(); if (sg) out.push(sg);
   const remove = m => () => { S.meds = S.meds.filter(o => o !== m); };
   const medRow = m => {
     const isDrip = m.f === "Drip" || m.f === "Inf";
@@ -998,7 +1110,7 @@ function renderRxList() {
     if (S.fee != null) out.push(rxRow(S.fee === 0 ? "Fee (free)" : "Fee", "", S.fee, null, () => { S.fee = null; }));
     S.extras.forEach((v, i) => out.push(rxRow("Other", "", v, null, () => S.extras.splice(i, 1))));
   }
-  if (!out.length) out.push(el("p", "rx-empty", "Nothing added yet. Tap Inj, Drip, fee or a medicine."));
+  if (out.length === (sg ? 1 : 0)) out.push(el("p", "rx-empty", "Nothing added yet. Tap Inj, Drip, fee or a medicine."));
   list.replaceChildren(...out);
   const n = S.meds.length;
   document.getElementById("rx-count").textContent = n ? `${n} item${n > 1 ? "s" : ""}` : "";
