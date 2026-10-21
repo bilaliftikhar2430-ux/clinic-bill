@@ -75,8 +75,14 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 
 .lbl { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin: 0 0 5px; }
 .row5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-.row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.age .btn.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px; display: grid; gap: 8px; }
+.card .lbl { margin: 0; }
+.patient-row { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
+.patient-row .field { padding: 12px; }
+.cchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.cchips .mini { padding: 8px 10px; font-size: 15px; }
+.advice-line { font-size: 14px; color: var(--muted); line-height: 1.4; }
+.advice-line b { color: var(--save); }
 .btn {
   position: relative; min-width: 0; padding: 12px 2px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
   font-weight: 700; font-size: 16px; line-height: 1.15; text-align: center;
@@ -199,23 +205,23 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
     <div class="undo" id="undo-bar" hidden><span>Cleared.</span><button type="button" id="undo">Undo</button></div>
   </header>
 
-  <section>
-    <div class="lbl">Patient age</div>
-    <div class="row4 age" id="ages"></div>
+  <section class="card">
+    <div class="patient-row">
+      <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off" autocapitalize="words">
+      <input id="p-age" class="field" type="number" inputmode="numeric" placeholder="Age" autocomplete="off">
+    </div>
+    <div class="cchips" id="complaint-chips"></div>
+    <div class="advice-line" id="advice-line" hidden></div>
   </section>
-  <section>
+  <section class="card">
     <div class="lbl">Fee</div>
     <div class="row5" id="fee"></div>
-  </section>
-  <section>
     <div class="lbl">Procedures</div>
     <div class="row5" id="procs"></div>
-  </section>
-  <section>
     <div class="lbl">Discount %</div>
     <div class="row5 disc" id="disc"></div>
   </section>
-  <section style="display:grid;gap:7px">
+  <section class="card">
     <div class="lbl" style="margin:0">Medicines</div>
     <div class="search-box">
       <input id="search" class="search" type="search" placeholder="Type to find… (mon, eso)" autocomplete="off">
@@ -271,16 +277,10 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
 <div class="scrim" id="print" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="print-title">
     <div class="sheet-head"><h3 id="print-title">Print / Share</h3><button class="ghost" id="print-close" type="button">Close</button></div>
-    <p>All optional. Leave empty and print straight away.</p>
-    <div class="fields">
-      <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off">
-      <input id="p-age" class="field" type="text" inputmode="numeric" placeholder="Age" autocomplete="off">
-    </div>
-    <div class="chips" id="complaint-chips"></div>
-    <input id="p-complaint" class="field" type="text" placeholder="Complaint" autocomplete="off">
+    <input id="p-complaint" class="field" type="text" placeholder="Diagnosis / other complaint (optional)" autocomplete="off">
     <div class="lbl" style="margin:0">Follow-up</div>
     <div class="chips" id="follow-chips"></div>
-    <div class="lbl" style="margin:0">Advice</div>
+    <div class="lbl" style="margin:0">Advice (picked from complaint and age, tap to change)</div>
     <div class="chips" id="advice-chips"></div>
     <div class="three">
       <button class="big" id="print-pad" type="button">Pad</button>
@@ -430,7 +430,39 @@ const ADVICE = [
   { k: "cold", en: "Avoid cold drinks", ur: "ٹھنڈی چیزوں سے پرہیز کریں" },
   { k: "steam", en: "Steam inhalation", ur: "بھاپ لیں" },
   { k: "salt", en: "Less salt", ur: "نمک کم کھائیں" },
+  { k: "sponge", en: "Sponge with lukewarm water in high fever", ur: "تیز بخار میں نیم گرم پانی سے پٹیاں کریں" },
+  { k: "gargle", en: "Warm salt-water gargles", ur: "نیم گرم نمکین پانی سے غرارے کریں" },
+  { k: "ors", en: "ORS: small sips, again and again", ur: "او آر ایس تھوڑا تھوڑا بار بار پلائیں" },
+  { k: "light", en: "Light food (khichri, yogurt)", ur: "ہلکی غذا کھائیں (کھچڑی، دہی)" },
+  { k: "sweet", en: "Avoid sugar and sweets", ur: "چینی اور میٹھی چیزوں سے پرہیز کریں" },
+  { k: "walk", en: "Walk 30 minutes daily", ur: "روزانہ ۳۰ منٹ سیر کریں" },
+  { k: "dust", en: "Avoid dust and smoke", ur: "دھول اور دھوئیں سے بچیں" },
+  { k: "breast", en: "Continue mother's feed", ur: "ماں کا دودھ جاری رکھیں" },
 ];
+// Which advice each complaint brings in
+const ADVICE_FOR = {
+  "Fever": ["water", "rest", "sponge"], "Cough": ["steam", "cold", "oily"], "Flu": ["steam", "cold", "rest", "water"],
+  "Sore throat": ["gargle", "cold", "oily"], "Body ache": ["rest", "water"], "Headache": ["rest", "water"],
+  "Stomach pain": ["oily", "light"], "Diarrhea": ["ors", "light", "oily"], "Vomiting": ["ors", "light"],
+  "BP": ["salt", "oily", "walk"], "Sugar": ["sweet", "walk"], "Allergy": ["dust", "cold"],
+};
+function autoAdvice() {
+  const age = parseFloat(S.age);
+  const keys = new Set();
+  S.complaints.forEach(c => (ADVICE_FOR[c] || []).forEach(k => keys.add(k)));
+  if (Number.isFinite(age)) {
+    if (age <= 5) { keys.delete("gargle"); keys.delete("steam"); }  // small children: no gargles, no steam
+    if (age < 13) keys.delete("walk");
+    if (age <= 2 && S.complaints.length) keys.add("breast");
+  }
+  return keys;
+}
+function effectiveAdvice() {
+  const keys = autoAdvice();
+  S.adviceOff.forEach(k => keys.delete(k));
+  S.adviceAdd.forEach(k => keys.add(k));
+  return ADVICE.filter(a => keys.has(a.k));
+}
 const FOLLOW = [ { d: 3, label: "3 days" }, { d: 5, label: "5 days" }, { d: 7, label: "1 week" }, { d: 14, label: "2 weeks" }, { d: 30, label: "1 month" } ];
 
 // ===== Helpers =====
@@ -457,8 +489,8 @@ function billCode(amount) {
 }
 
 // ===== State =====
-const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaint: "", follow: null, advice: [] });
-let draft = store.get("cb-draft2", null);
+const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaints: [], complaintText: "", follow: null, adviceAdd: [], adviceOff: [] });
+let draft = store.get("cb-draft3", null);
 let S = draft && draft.day === todayKey() ? Object.assign(blank(), draft.s) : blank();
 let opd = store.get("cb-opd", null);
 if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
@@ -469,7 +501,7 @@ Object.keys(memory).forEach(k => { if (!k.includes("|")) { if (!memory[k + "|adu
 let activeTab = store.get("cb-tab", "T");
 if (!TABS.some(t => t.key === activeTab)) activeTab = "T";
 let lastCleared = null, uidSeq = Date.now();
-const save = () => { store.set("cb-draft2", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
+const save = () => { store.set("cb-draft3", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
 
 // ===== Toast =====
 const toastEl = document.getElementById("toast"); let toastT;
@@ -527,12 +559,6 @@ const discBtns = DISCOUNTS.map(d => {
 });
 
 // ===== Age =====
-const agesBox = document.getElementById("ages");
-const ageBtns = AGES.map(g => {
-  const b = el("button", "btn", g.label); b.type = "button";
-  b.addEventListener("click", () => setAgeGroup(g.k));
-  agesBox.append(b); return { k: g.k, b };
-});
 function setAgeGroup(k) {
   if (!k || k === S.ageGroup) return;
   S.ageGroup = k;
@@ -672,7 +698,7 @@ const opdNum = document.getElementById("opd-num");
 let prevNet = 0;
 function update() {
   opdNum.textContent = opd.n;
-  ageBtns.forEach(({ k, b }) => b.classList.toggle("on", S.ageGroup === k));
+  renderComplaintChips(); renderAdviceLine();
   feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
   const custom = S.fee != null && !FEES.includes(S.fee);
   feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
@@ -726,46 +752,56 @@ document.getElementById("opd").addEventListener("click", () => askNumber({
 
 // ===== New patient + undo =====
 const undoBar = document.getElementById("undo-bar"); let undoT;
-const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.complaint;
+const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.age || S.complaints.length;
 document.getElementById("clear").addEventListener("click", () => {
   if (!hasContent()) return;
   lastCleared = JSON.parse(JSON.stringify({ S, n: opd.n }));
   S = blank(); opd.n += 1;
-  search.value = ""; showMeds(); update(); window.scrollTo({ top: 0 });
+  search.value = ""; showMeds(); renderPatient(); update(); window.scrollTo({ top: 0 });
   undoBar.hidden = false; clearTimeout(undoT); undoT = setTimeout(() => { undoBar.hidden = true; lastCleared = null; }, 8000);
 });
 document.getElementById("undo").addEventListener("click", () => {
-  if (!lastCleared) return; S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; update();
+  if (!lastCleared) return; S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; renderPatient(); update();
 });
+
+// ===== Patient (main screen) =====
+const pName = document.getElementById("p-name"), pAge = document.getElementById("p-age"), pComplaint = document.getElementById("p-complaint");
+pName.addEventListener("input", () => { S.name = pName.value; save(); });
+pAge.addEventListener("input", () => { S.age = pAge.value; setAgeGroup(ageGroupFor(S.age) || "adult"); update(); });
+pComplaint.addEventListener("input", () => { S.complaintText = pComplaint.value; save(); });
+function renderPatient() { pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaintText; }
+function renderComplaintChips() {
+  const cc = document.getElementById("complaint-chips");
+  cc.replaceChildren(...COMPLAINTS.map(c => {
+    const b = el("button", "mini" + (S.complaints.includes(c) ? " on" : ""), c); b.type = "button";
+    b.addEventListener("click", () => { S.complaints = S.complaints.includes(c) ? S.complaints.filter(x => x !== c) : S.complaints.concat(c); update(); });
+    return b;
+  }));
+}
+function renderAdviceLine() {
+  const adv = effectiveAdvice(), line = document.getElementById("advice-line");
+  line.hidden = adv.length === 0;
+  line.replaceChildren(el("b", null, "Advice: "), document.createTextNode(adv.map(a => a.en).join(" · ")));
+}
 
 // ===== Print sheet =====
 const printSheet = document.getElementById("print");
-const pName = document.getElementById("p-name"), pAge = document.getElementById("p-age"), pComplaint = document.getElementById("p-complaint");
-pName.addEventListener("input", () => { S.name = pName.value; save(); });
-pAge.addEventListener("input", () => { S.age = pAge.value; save(); setAgeGroup(ageGroupFor(S.age)); });
-pComplaint.addEventListener("input", () => { S.complaint = pComplaint.value; save(); renderPrintChips(); });
 function renderPrintChips() {
-  const parts = S.complaint.split(",").map(s => s.trim()).filter(Boolean);
-  const lower = parts.map(s => s.toLowerCase());
-  const cc = document.getElementById("complaint-chips");
-  cc.replaceChildren(...COMPLAINTS.map(c => {
-    const b = el("button", "mini" + (lower.includes(c.toLowerCase()) ? " on" : ""), c); b.type = "button";
-    b.addEventListener("click", () => {
-      const p = lower.includes(c.toLowerCase()) ? parts.filter(s => s.toLowerCase() !== c.toLowerCase()) : parts.concat(c);
-      S.complaint = p.join(", "); pComplaint.value = S.complaint; save(); renderPrintChips();
-    });
-    return b;
-  }));
   chipRow(document.getElementById("follow-chips"), FOLLOW.map(f => ({ k: f.d, label: f.label })), S.follow, v => { S.follow = v; save(); renderPrintChips(); }, o => o.label);
   const ac = document.getElementById("advice-chips");
+  const on = new Set(effectiveAdvice().map(a => a.k));
   ac.replaceChildren(...ADVICE.map(a => {
-    const b = el("button", "mini" + (S.advice.includes(a.k) ? " on" : ""), a.en); b.type = "button";
-    b.addEventListener("click", () => { S.advice = S.advice.includes(a.k) ? S.advice.filter(k => k !== a.k) : S.advice.concat(a.k); save(); renderPrintChips(); });
+    const b = el("button", "mini" + (on.has(a.k) ? " on" : ""), a.en); b.type = "button";
+    b.addEventListener("click", () => {
+      if (on.has(a.k)) { if (S.adviceAdd.includes(a.k)) S.adviceAdd = S.adviceAdd.filter(k => k !== a.k); else S.adviceOff = S.adviceOff.concat(a.k); }
+      else { if (S.adviceOff.includes(a.k)) S.adviceOff = S.adviceOff.filter(k => k !== a.k); else S.adviceAdd = S.adviceAdd.concat(a.k); }
+      update(); renderPrintChips();
+    });
     return b;
   }));
 }
 document.getElementById("btn-print").addEventListener("click", () => {
-  pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaint; renderPrintChips(); printSheet.hidden = false;
+  pComplaint.value = S.complaintText; renderPrintChips(); printSheet.hidden = false;
 });
 document.getElementById("print-close").addEventListener("click", () => { printSheet.hidden = true; });
 
@@ -784,10 +820,10 @@ function rxDoc() {
   const { net } = totals();
   const follow = S.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + S.follow); return d; })() : null;
   return {
-    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaint.trim(),
+    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaints.concat(S.complaintText.trim() ? [S.complaintText.trim()] : []).join(", "),
     meds: S.meds.map(medLines),
     procs: PROCS.filter(p => S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
-    advice: ADVICE.filter(a => S.advice.includes(a.k)),
+    advice: effectiveAdvice(),
     follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(S.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
     code: net > 0 ? billCode(net) : "",
   };
@@ -888,7 +924,7 @@ document.getElementById("share-img").addEventListener("click", () => {
 document.getElementById("img-close").addEventListener("click", () => { document.getElementById("img-view").hidden = true; });
 
 // ===== Start =====
-showMeds(); update();
+showMeds(); renderPatient(); update();
 </script>
 
 <script>
