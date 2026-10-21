@@ -81,6 +81,9 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .patient-row .field { padding: 12px; }
 .cchips { display: flex; flex-wrap: wrap; gap: 5px; }
 .cchips .mini { padding: 8px 10px; font-size: 15px; }
+.cchips .more { border-style: dashed; color: var(--pen); }
+.cchips .warn.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+.cgroup .lbl { margin-bottom: 4px; }
 .advice-line { font-size: 14px; color: var(--muted); line-height: 1.4; }
 .advice-line b { color: var(--save); }
 .inj-row { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
@@ -217,7 +220,13 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
       <input id="p-name" class="field" type="text" placeholder="Patient name" autocomplete="off" autocapitalize="words">
       <input id="p-age" class="field" type="number" inputmode="numeric" placeholder="Age" autocomplete="off">
     </div>
+    <div class="lbl">Complaints</div>
     <div class="cchips" id="complaint-chips"></div>
+    <div class="lbl">K/C/O</div>
+    <div class="cchips" id="como-chips"></div>
+    <div class="lbl">Drug allergy</div>
+    <div class="cchips" id="allergy-chips"></div>
+    <input id="allergy-text" class="field" type="text" placeholder="Other drug allergy (type)" autocomplete="off" style="padding:10px 12px;font-size:16px">
     <div class="advice-line" id="advice-line" hidden></div>
     <div class="nurse-box" id="nurse-box" hidden></div>
   </section>
@@ -278,6 +287,16 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
     <div class="ur" id="dose-ur"></div>
     <div class="chips" id="dose-given"></div>
     <button class="linkish danger" id="dose-remove" type="button">Remove this medicine</button>
+  </div>
+</div>
+
+<!-- Complaint picker -->
+<div class="scrim" id="cpick" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cpick-title" style="height:90vh;align-content:start">
+    <div class="sheet-head"><h3 id="cpick-title">Complaints</h3><button class="big" id="cpick-done" type="button">Done</button></div>
+    <div class="search-box"><input id="cpick-search" class="search" type="search" placeholder="Type to find… (burn, colic, leg)" autocomplete="off"></div>
+    <button class="add-custom" id="cpick-custom" type="button" hidden></button>
+    <div id="cpick-list" style="display:grid;gap:10px"></div>
   </div>
 </div>
 
@@ -467,7 +486,29 @@ const doseList = m => { const it = m.id && ITEMS[m.id]; return (it && it.doses ?
 const doseKind = f => (f === "T" || f === "C") ? "pill" : (DOSES[f] ? f : "pill");
 const DAYS = [3, 5, 7, 10, 15, 30];
 const FOOD = [ { k: "before", en: "before meal", ur: "کھانے سے پہلے", label: "Before meal" }, { k: "after", en: "after meal", ur: "کھانے کے بعد", label: "After meal" } ];
-const COMPLAINTS = ["Fever", "Cough", "Flu", "Sore throat", "Body ache", "Headache", "Stomach pain", "Diarrhea", "Vomiting", "BP", "Sugar", "Allergy"];
+// Presenting complaints, grouped. Ones in SIDE ask Left / Right / Both.
+const CGROUPS = [
+  ["General", ["Fever", "Body ache", "Weakness", "Headache", "Dizziness", "Loss of appetite", "Weight loss", "Fits"]],
+  ["Chest", ["Cough", "Flu", "Sore throat", "Shortness of breath", "Wheezing", "Chest pain", "Palpitations"]],
+  ["Stomach", ["Stomach pain", "Heartburn", "Nausea", "Vomiting", "Diarrhea", "Constipation", "Bloating", "Piles", "Blood in stool"]],
+  ["Urine", ["Burning micturition", "Frequent urination", "Renal colic", "Blood in urine", "Difficulty passing urine"]],
+  ["Bones & joints", ["Leg pain", "Arm pain", "Knee pain", "Shoulder pain", "Joint pain", "Back pain", "Neck pain", "Leg cramps", "Swelling of feet"]],
+  ["Skin", ["Itching", "Rash", "Allergy", "Wound", "Boil", "Fungal infection", "Burn"]],
+  ["Ear, eye, teeth", ["Ear pain", "Ear discharge", "Eye redness", "Eye discharge", "Toothache"]],
+  ["Women", ["Menstrual pain", "Irregular periods", "White discharge"]],
+  ["Nerves & mind", ["Numbness / tingling", "Insomnia", "Anxiety"]],
+  ["Known high", ["High BP", "High sugar"]],
+];
+const SIDE = {
+  "Leg pain": ["Pain in {s} leg", "Pain in both legs"], "Arm pain": ["Pain in {s} arm", "Pain in both arms"],
+  "Knee pain": ["{s} knee pain", "Both knees pain"], "Shoulder pain": ["{s} shoulder pain", "Both shoulders pain"],
+  "Renal colic": ["{s} renal colic", "Bilateral renal colic"], "Ear pain": ["{s} ear pain", "Both ears pain"],
+  "Ear discharge": ["{s} ear discharge", "Both ears discharge"], "Eye redness": ["{s} eye redness", "Both eyes red"],
+  "Eye discharge": ["{s} eye discharge", "Both eyes discharge"],
+};
+const COMMON_COMPLAINTS = ["Fever", "Cough", "Flu", "Sore throat", "Body ache", "Headache", "Stomach pain", "Diarrhea", "Vomiting", "Burning micturition", "Leg pain", "Back pain"];
+const COMORBID = ["DM", "HTN", "Asthma", "IHD", "CCF", "COPD", "CKD", "CLD", "TB", "Epilepsy", "Hypothyroid", "Pregnant", "Smoker"];
+const ALLERGIES = ["NKDA", "NSAIDs", "Penicillin", "Sulfa", "Aspirin", "Quinolones"];
 const ADVICE = [
   { k: "water", en: "Drink plenty of water", ur: "پانی زیادہ پئیں" },
   { k: "rest", en: "Take rest", ur: "آرام کریں" },
@@ -483,13 +524,22 @@ const ADVICE = [
   { k: "walk", en: "Walk 30 minutes daily", ur: "روزانہ ۳۰ منٹ سیر کریں" },
   { k: "dust", en: "Avoid dust and smoke", ur: "دھول اور دھوئیں سے بچیں" },
   { k: "breast", en: "Continue mother's feed", ur: "ماں کا دودھ جاری رکھیں" },
+  { k: "fiber", en: "Eat fruit and vegetables", ur: "پھل اور سبزیاں زیادہ کھائیں" },
+  { k: "smoke", en: "Stop smoking", ur: "سگریٹ نوشی چھوڑ دیں" },
 ];
 // Which advice each complaint brings in
 const ADVICE_FOR = {
   "Fever": ["water", "rest", "sponge"], "Cough": ["steam", "cold", "oily"], "Flu": ["steam", "cold", "rest", "water"],
   "Sore throat": ["gargle", "cold", "oily"], "Body ache": ["rest", "water"], "Headache": ["rest", "water"],
   "Stomach pain": ["oily", "light"], "Diarrhea": ["ors", "light", "oily"], "Vomiting": ["ors", "light"],
-  "BP": ["salt", "oily", "walk"], "Sugar": ["sweet", "walk"], "Allergy": ["dust", "cold"],
+  "High BP": ["salt", "oily", "walk"], "High sugar": ["sweet", "walk"], "Allergy": ["dust", "cold"],
+  "Burning micturition": ["water"], "Renal colic": ["water"], "Heartburn": ["oily"], "Bloating": ["oily"], "Nausea": ["light"],
+  "Constipation": ["water", "fiber"], "Piles": ["water", "fiber"], "Shortness of breath": ["dust"], "Wheezing": ["dust", "cold"],
+  "Back pain": ["rest"], "Neck pain": ["rest"], "Leg pain": ["rest"], "Knee pain": ["rest"], "Joint pain": ["rest"], "Swelling of feet": ["salt"],
+};
+const COMORBID_ADVICE = {
+  "DM": ["sweet", "walk"], "HTN": ["salt", "oily", "walk"], "Asthma": ["dust", "cold"], "COPD": ["dust", "smoke"],
+  "IHD": ["oily", "salt"], "CCF": ["salt"], "CKD": ["salt"], "Smoker": ["smoke"],
 };
 // Advice that suits the typed age. No age typed = treated as adult.
 function ageOk(k) {
@@ -501,8 +551,10 @@ function ageOk(k) {
 }
 function autoAdvice() {
   const keys = new Set();
-  S.complaints.forEach(c => (ADVICE_FOR[c] || []).forEach(k => keys.add(k)));
+  S.complaints.forEach(c => (ADVICE_FOR[c.k] || []).forEach(k => keys.add(k)));
+  S.como.forEach(c => (COMORBID_ADVICE[c] || []).forEach(k => keys.add(k)));
   if (S.complaints.length) keys.add("breast");
+  if (S.como.includes("CCF") || S.como.includes("CKD")) keys.delete("water");  // fluid restriction
   return keys;
 }
 function effectiveAdvice() {
@@ -539,8 +591,8 @@ function billCode(amount) {
 }
 
 // ===== State =====
-const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaints: [], complaintText: "", follow: null, adviceAdd: [], adviceOff: [] });
-let draft = store.get("cb-draft3", null);
+const blank = () => ({ fee: null, qty: {}, extras: [], disc: 0, override: null, meds: [], ageGroup: "adult", name: "", age: "", complaints: [], como: [], allergy: [], allergyText: "", complaintText: "", follow: null, adviceAdd: [], adviceOff: [] });
+let draft = store.get("cb-draft4", null);
 let S = draft && draft.day === todayKey() ? Object.assign(blank(), draft.s) : blank();
 let opd = store.get("cb-opd", null);
 if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
@@ -552,7 +604,7 @@ Object.keys(memory).forEach(k => { if (!k.includes("|")) { if (!memory[k + "|adu
 let activeTab = store.get("cb-tab", "T");
 if (!TABS.some(t => t.key === activeTab)) activeTab = "T";
 let lastCleared = null, uidSeq = Date.now();
-const save = () => { store.set("cb-draft3", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
+const save = () => { store.set("cb-draft4", { day: todayKey(), s: S }); store.set("cb-opd", opd); };
 
 // ===== Toast =====
 const toastEl = document.getElementById("toast"); let toastT;
@@ -872,7 +924,7 @@ document.getElementById("opd").addEventListener("click", () => askNumber({
 
 // ===== New patient + undo =====
 const undoBar = document.getElementById("undo-bar"); let undoT;
-const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.age || S.complaints.length;
+const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name || S.age || S.complaints.length || S.como.length || S.allergy.length;
 document.getElementById("clear").addEventListener("click", () => {
   if (!hasContent()) return;
   lastCleared = JSON.parse(JSON.stringify({ S, n: opd.n }));
@@ -889,15 +941,62 @@ const pName = document.getElementById("p-name"), pAge = document.getElementById(
 pName.addEventListener("input", () => { S.name = pName.value; save(); });
 pAge.addEventListener("input", () => { S.age = pAge.value; setAgeGroup(ageGroupFor(S.age) || "adult"); update(); });
 pComplaint.addEventListener("input", () => { S.complaintText = pComplaint.value; save(); });
-function renderPatient() { pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaintText; }
-function renderComplaintChips() {
-  const cc = document.getElementById("complaint-chips");
-  cc.replaceChildren(...COMPLAINTS.map(c => {
-    const b = el("button", "mini" + (S.complaints.includes(c) ? " on" : ""), c); b.type = "button";
-    b.addEventListener("click", () => { S.complaints = S.complaints.includes(c) ? S.complaints.filter(x => x !== c) : S.complaints.concat(c); update(); });
-    return b;
-  }));
+const allergyText = document.getElementById("allergy-text");
+allergyText.addEventListener("input", () => { S.allergyText = allergyText.value; if (S.allergyText.trim()) S.allergy = S.allergy.filter(a => a !== "NKDA"); save(); renderComplaintChips(); });
+function renderPatient() { pName.value = S.name; pAge.value = S.age; pComplaint.value = S.complaintText; allergyText.value = S.allergyText; }
+
+// Complaints: tap to add or remove; side complaints ask Left / Right / Both
+const findC = k => S.complaints.find(c => c.k === k);
+function toggleComplaint(k, after) {
+  if (findC(k)) { S.complaints = S.complaints.filter(c => c.k !== k); update(); after && after(); return; }
+  if (SIDE[k]) {
+    askNumber({ title: k + ": which side?", noInput: true, quick: [{ label: "Left", value: "L" }, { label: "Right", value: "R" }, { label: "Both", value: "B" }],
+      onPick: v => { const t = SIDE[k]; S.complaints = S.complaints.concat({ k, label: v === "B" ? t[1] : t[0].replace("{s}", v) }); update(); after && after(); } });
+    return;
+  }
+  S.complaints = S.complaints.concat({ k, label: k }); update(); after && after();
 }
+function chip(label, on, onClick, cls) {
+  const b = el("button", "mini" + (on ? " on" : "") + (cls ? " " + cls : ""), label); b.type = "button";
+  b.addEventListener("click", onClick); return b;
+}
+function renderComplaintChips() {
+  const extra = S.complaints.filter(c => !COMMON_COMPLAINTS.includes(c.k));
+  document.getElementById("complaint-chips").replaceChildren(
+    ...COMMON_COMPLAINTS.map(k => { const c = findC(k); return chip(c ? c.label : k, !!c, () => toggleComplaint(k)); }),
+    ...extra.map(c => chip(c.label, true, () => toggleComplaint(c.k))),
+    chip("+ More", false, openComplaintPicker, "more"));
+  document.getElementById("como-chips").replaceChildren(...COMORBID.map(k => chip(k, S.como.includes(k), () => {
+    S.como = S.como.includes(k) ? S.como.filter(x => x !== k) : S.como.concat(k); update();
+  })));
+  document.getElementById("allergy-chips").replaceChildren(...ALLERGIES.map(k => chip(k, S.allergy.includes(k), () => {
+    if (S.allergy.includes(k)) S.allergy = S.allergy.filter(x => x !== k);
+    else S.allergy = k === "NKDA" ? ["NKDA"] : S.allergy.filter(x => x !== "NKDA").concat(k);
+    if (k === "NKDA") { S.allergyText = ""; allergyText.value = ""; }
+    update();
+  }, k === "NKDA" ? "" : "warn")));
+}
+const cpick = document.getElementById("cpick"), cpickSearch = document.getElementById("cpick-search"), cpickCustom = document.getElementById("cpick-custom");
+function renderComplaintPicker() {
+  const q = cpickSearch.value.trim().toLowerCase();
+  const groups = CGROUPS.map(([g, list]) => [g, list.filter(k => !q || k.toLowerCase().includes(q) || g.toLowerCase().includes(q))]).filter(([, l]) => l.length);
+  document.getElementById("cpick-list").replaceChildren(...groups.map(([g, list]) => {
+    const box = el("div", "cgroup"); box.append(el("div", "lbl", g));
+    const chips = el("div", "cchips");
+    chips.append(...list.map(k => { const c = findC(k); return chip(c ? c.label : k + (SIDE[k] ? " (L/R)" : ""), !!c, () => toggleComplaint(k, renderComplaintPicker)); }));
+    box.append(chips); return box;
+  }));
+  cpickCustom.hidden = !q; cpickCustom.textContent = `+ Add “${cpickSearch.value.trim()}”`;
+}
+function openComplaintPicker() { cpickSearch.value = ""; renderComplaintPicker(); cpick.hidden = false; }
+cpickSearch.addEventListener("input", renderComplaintPicker);
+cpickCustom.addEventListener("click", () => {
+  const t = cpickSearch.value.trim(); if (!t) return;
+  const label = t.charAt(0).toUpperCase() + t.slice(1);
+  if (!findC(label)) S.complaints = S.complaints.concat({ k: label, label });
+  cpickSearch.value = ""; update(); renderComplaintPicker();
+});
+document.getElementById("cpick-done").addEventListener("click", () => { cpick.hidden = true; });
 // What the nurse must do: drip with the injections to add in it, then IM and IV injections.
 const isNurseItem = m => m.f === "Drip" || m.f === "Inf" || (m.f === "Inj" && !(ITEMS[m.id] && ITEMS[m.id].doses));
 function nurseLines() {
@@ -967,7 +1066,9 @@ function rxDoc() {
   const { net } = totals();
   const follow = S.follow ? (() => { const d = new Date(); d.setDate(d.getDate() + S.follow); return d; })() : null;
   return {
-    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaints.concat(S.complaintText.trim() ? [S.complaintText.trim()] : []).join(", "),
+    no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaints.map(c => c.label).concat(S.complaintText.trim() ? [S.complaintText.trim()] : []).join(", "),
+    como: S.como.join(", "),
+    allergy: S.allergy.concat(S.allergyText.trim() ? [S.allergyText.trim()] : []).join(", "),
     meds: S.meds.filter(m => !isNurseItem(m)).map(medLines),
     nurse: nurseLines(),
     procs: PROCS.filter(p => !p.pick && S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
@@ -986,7 +1087,9 @@ function docHtml(doc, mode) {
   const top = `<div style="display:flex;justify-content:space-between;gap:3mm;font-size:${fs}pt">
       <span><b>${esc(doc.name)}</b>${doc.age ? ` &nbsp;Age: ${esc(doc.age)}` : ""}</span>
       <span style="white-space:nowrap">No. <b>${doc.no}</b> &nbsp;${doc.date}</span></div>`;
-  const complaint = doc.complaint ? `<div style="font-size:${fs}pt;margin-top:2mm">C/O: ${esc(doc.complaint)}</div>` : "";
+  const complaint = (doc.como ? `<div style="font-size:${fs}pt;margin-top:2mm">K/C/O: ${esc(doc.como)}</div>` : "")
+    + (doc.allergy ? `<div style="font-size:${fs}pt;margin-top:1mm;font-weight:700">Drug allergy: ${esc(doc.allergy)}</div>` : "")
+    + (doc.complaint ? `<div style="font-size:${fs}pt;margin-top:2mm">C/O: ${esc(doc.complaint)}</div>` : "");
   const meds = doc.meds.length ? `<div style="font-size:${fs + 4}pt;font-weight:700;margin-top:3mm">Rx</div>` + doc.meds.map((m, i) => `
       <div style="margin-top:2mm;break-inside:avoid">
         <div style="font-size:${fs + 1}pt;font-weight:700">${i + 1}. ${esc(m.en)}</div>
@@ -1026,6 +1129,8 @@ function drawPicture(doc) {
   if (settings.clinic || settings.doctor) B.push({ rule: true });
   B.push({ t: `No. ${doc.no}    ${doc.date}`, s: base - 2 });
   if (doc.name || doc.age) B.push({ t: `${doc.name}${doc.age ? "   Age: " + doc.age : ""}`, s: base, b: true });
+  if (doc.como) B.push({ t: "K/C/O: " + doc.como, s: base - 1 });
+  if (doc.allergy) B.push({ t: "Drug allergy: " + doc.allergy, s: base - 1, b: true });
   if (doc.complaint) B.push({ t: "C/O: " + doc.complaint, s: base - 1 });
   if (doc.nurse.length) { B.push({ t: "Nurse:", s: base, b: true, gap: 8 }); doc.nurse.forEach(l => B.push({ t: "• " + l, s: base, b: true })); }
   if (doc.meds.length) B.push({ t: "Rx", s: base + 6, b: true, gap: 8 });
