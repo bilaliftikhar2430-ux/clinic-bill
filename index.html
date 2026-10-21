@@ -110,6 +110,10 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .sg-row .mini.on { background: var(--save); border-color: var(--save); color: #fff; }
 .sg-done { font-size: 15px; color: var(--save); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
 .sg-done button { border: 0; background: none; color: var(--pen); font-weight: 700; text-decoration: underline; padding: 6px; }
+.learn { border: 1.5px solid var(--pen); background: var(--pen-soft); border-radius: 12px; padding: 10px; display: grid; gap: 8px; margin-bottom: 4px; }
+.learn .sg-add { background: var(--pen); color: var(--pen-ink); }
+.learn .sg-row .mini small { font-family: var(--font-num); font-size: 12px; opacity: .75; margin-left: 4px; }
+.learn-note { font-size: 13px; color: var(--muted); }
 .card .lbl { margin: 0; }
 .patient-row { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
 .patient-row .field { padding: 12px; }
@@ -640,6 +644,8 @@ if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
 let settings = Object.assign({ clinic: "", doctor: "", width: "58", top: 45, left: 12, right: 12, pad: "A5" }, store.get("cb-settings", {}));
 let memory = store.get("cb-dose-memory", {});
 let prices = store.get("cb-prices", {});
+// Finished patients (no names): complaints, child/adult, medicines with doses. Used to learn the doctor's pattern.
+let history = store.get("cb-history", []);
 // doses saved before age groups existed count as adult doses
 Object.keys(memory).forEach(k => { if (!k.includes("|")) { if (!memory[k + "|adult"]) memory[k + "|adult"] = memory[k]; delete memory[k]; } });
 let activeTab = store.get("cb-tab", "T");
@@ -1088,9 +1094,76 @@ function suggestBox() {
   return box;
 }
 
+// ===== Learning from finished patients =====
+function recordCase() {
+  const meds = S.meds.filter(m => m.id && ITEMS[m.id]).map(m => ({ id: m.id, d: m.dose, n: m.days, fo: m.food }));
+  if (!meds.length || !S.complaints.length) return false;
+  history.push({ c: S.complaints.map(c => c.k).sort(), ch: isChild(), m: meds });
+  if (history.length > 3000) history = history.slice(-3000);
+  store.set("cb-history", history);
+  return true;
+}
+function learned() {
+  const keys = S.complaints.map(c => c.k); if (!keys.length) return null;
+  const child = isChild();
+  let wsum = 0, cases = 0; const score = {}, doses = {};
+  history.forEach(h => {
+    if (h.ch !== child) return;
+    const inter = h.c.filter(k => keys.includes(k)).length; if (!inter) return;
+    const w = inter / new Set(h.c.concat(keys)).size;   // how similar this old patient is
+    wsum += w; cases++;
+    h.m.forEach(m => {
+      score[m.id] = (score[m.id] || 0) + w;
+      const dk = JSON.stringify([m.d, m.n, m.fo]); doses[m.id] = doses[m.id] || {}; doses[m.id][dk] = (doses[m.id][dk] || 0) + w;
+    });
+  });
+  if (cases < 3) return { cases, items: [] };
+  const items = Object.keys(score).filter(id => ITEMS[id]).map(id => {
+    const best = Object.entries(doses[id]).sort((a, b) => b[1] - a[1])[0][0];
+    const [d, n, fo] = JSON.parse(best);
+    return { id, pct: Math.round(score[id] / wsum * 100), d, n, fo };
+  }).filter(x => x.pct >= 25).sort((a, b) => b.pct - a.pct).slice(0, 10);
+  return { cases, items };
+}
+function addLearned(x) {
+  if (S.meds.some(m => m.id === x.id)) return;
+  const it = ITEMS[x.id];
+  if (it.f === "Drip" || it.f === "Inf") { askDripPrice(it, v => addMed(it, null, v)); return; }
+  const m = { uid: uidSeq++, id: x.id, name: it.name, f: it.f, dose: x.d, days: x.n, food: x.fo, given: true };
+  const mem = memory[memKey(m)]; if (!m.dose && mem) Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food });
+  S.meds.push(m);
+}
+function learnBox() {
+  const L = learned(); if (!L) return null;
+  const box = el("div", "learn");
+  if (!L.items.length) {
+    box.append(el("div", "learn-note", L.cases ? `Learning your pattern for this case: ${L.cases} similar patient${L.cases > 1 ? "s" : ""} so far (needs 3).` : "Learning your pattern: finish a few patients with these complaints and suggestions will appear here."));
+    return box;
+  }
+  const todo = L.items.filter(x => !S.meds.some(m => m.id === x.id));
+  const head = el("div", "sg-head"); head.append(el("b", null, `From your patients (${L.cases} similar)`));
+  const common = todo.filter(x => x.pct >= 50);
+  if (common.length) {
+    const add = el("button", "sg-add", "Add all"); add.type = "button";
+    add.addEventListener("click", () => { common.forEach(x => { if (!(ITEMS[x.id].f === "Drip" || ITEMS[x.id].f === "Inf")) addLearned(x); }); update(); });
+    head.append(add);
+  }
+  box.append(head);
+  if (!todo.length) { box.append(el("div", "learn-note", "Everything you usually give here is already added.")); return box; }
+  const row = el("div", "sg-row");
+  todo.forEach(x => {
+    const b = chip("+ " + shortName(x.id) + (x.d ? " " + x.d : ""), false, () => { addLearned(x); update(); });
+    b.append(el("small", null, x.pct + "%"));
+    row.append(b);
+  });
+  box.append(row);
+  return box;
+}
+
 function renderRxList() {
   const list = document.getElementById("rx-list"), out = [];
   const sg = suggestBox(); if (sg) out.push(sg);
+  const lb = learnBox(); if (lb) out.push(lb);
   const remove = m => () => { S.meds = S.meds.filter(o => o !== m); };
   const medRow = m => {
     const isDrip = m.f === "Drip" || m.f === "Inf";
@@ -1110,7 +1183,7 @@ function renderRxList() {
     if (S.fee != null) out.push(rxRow(S.fee === 0 ? "Fee (free)" : "Fee", "", S.fee, null, () => { S.fee = null; }));
     S.extras.forEach((v, i) => out.push(rxRow("Other", "", v, null, () => S.extras.splice(i, 1))));
   }
-  if (out.length === (sg ? 1 : 0)) out.push(el("p", "rx-empty", "Nothing added yet. Tap Inj, Drip, fee or a medicine."));
+  if (out.length === (sg ? 1 : 0) + (lb ? 1 : 0)) out.push(el("p", "rx-empty", "Nothing added yet. Tap Inj, Drip, fee or a medicine."));
   list.replaceChildren(...out);
   const n = S.meds.length;
   document.getElementById("rx-count").textContent = n ? `${n} item${n > 1 ? "s" : ""}` : "";
@@ -1134,12 +1207,15 @@ const hasContent = () => billLines().length > 0 || S.meds.length > 0 || S.name |
 document.getElementById("clear").addEventListener("click", () => {
   if (!hasContent()) return;
   lastCleared = JSON.parse(JSON.stringify({ S, n: opd.n }));
+  lastCleared.recorded = recordCase();
   S = blank(); opd.n += 1;
   search.value = ""; showMeds(); renderPatient(); update(); window.scrollTo({ top: 0 });
   undoBar.hidden = false; clearTimeout(undoT); undoT = setTimeout(() => { undoBar.hidden = true; lastCleared = null; }, 8000);
 });
 document.getElementById("undo").addEventListener("click", () => {
-  if (!lastCleared) return; S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; renderPatient(); update();
+  if (!lastCleared) return;
+  if (lastCleared.recorded) { history.pop(); store.set("cb-history", history); }
+  S = lastCleared.S; opd.n = lastCleared.n; lastCleared = null; undoBar.hidden = true; renderPatient(); update();
 });
 
 // ===== Patient (main screen) =====
