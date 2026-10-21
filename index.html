@@ -329,9 +329,17 @@ label.set { display: grid; gap: 4px; font-size: 15px; color: var(--muted); font-
 const FEES = [0, 300, 400, 500];
 const PROCS = [
   { id: "inj", name: "Inj", price: 150 },
-  { id: "drip", name: "Drip", price: 850 },
+  { id: "drip", name: "Drip", price: 850, pick: true },
   { id: "neb", name: "Nebs", price: 200 },
   { id: "dress", name: "Dressing", price: 200 },
+];
+// Drips and infusions (Drip button). Prices of null are asked once and remembered.
+const DRIPS = [
+  { id: "d-ns", name: "NS", f: "Drip", price: 850 },
+  { id: "d-ds", name: "DS", f: "Drip", price: 850 },
+  { id: "d-dw", name: "DW", f: "Drip", price: 850 },
+  { id: "d-acetosol", name: "Acetosol", f: "Inf", price: null },
+  { id: "d-flagyl", name: "Flagyl", f: "Inf", price: null },
 ];
 const DISCOUNTS = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 const TABS = [
@@ -394,13 +402,25 @@ const TABS = [
     { id: "i-vyber", name: "Vyber", price: 490 },
     { id: "i-esopep", name: "Esopep", price: 450 },
     { id: "i-rapid", name: "Rapid", price: 400 },
-    { id: "i-calcif", name: "Calciferol", price: 200 },
+    { id: "i-nospa", name: "Nospa", price: 150 },
+    { id: "i-s1", name: "S1", price: 150 },
+    { id: "i-fr", name: "FR", price: 150 },
+    { id: "i-devom", name: "Devom", price: 150 },
+    { id: "i-b12", name: "B12", price: 150 },
+    { id: "i-viobion", name: "Viobion", price: 150, inDripFree: true },
+    { id: "i-murfyplex", name: "Murfyplex", price: 150, inDripFree: true },
+    { id: "i-mbm", name: "MBM", price: 150 },
+    { id: "i-ramadiclo", name: "Rama Diclo", price: 150 },
+    { id: "i-oxidil250", name: "Oxidil 250mg", price: null },
+    { id: "i-oxidil500", name: "Oxidil 500mg", price: null },
+    { id: "i-oxidil1g", name: "Oxidil 1g", price: null },
+    { id: "i-calcif", name: "Calciferol (oral)", price: 200, doses: "calc" },
     { id: "o-cranberry", name: "Cranberry sachet", price: 350, f: "Sac" },
   ]},
 ];
 
 // ===== Prescription vocabulary =====
-const FORM_LABEL = { T: "Tab", C: "Cap", S: "Syp", Inj: "Inj", Sac: "Sachet" };
+const FORM_LABEL = { T: "Tab", C: "Cap", S: "Syp", Inj: "Inj", Sac: "Sachet", Drip: "Drip", Inf: "Inf" };
 const DOSES = {
   pill: [
     { k: "1xOD", ur: "دن میں ایک بار", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ایک", n: 2 },
@@ -413,12 +433,16 @@ const DOSES = {
     { k: "1 tsf TDS", ur: "ایک چمچ دن میں تین بار" }, { k: "2 tsf TDS", ur: "دو چمچ دن میں تین بار" },
     { k: "1 tsf HS", ur: "ایک چمچ رات سوتے وقت" }, { k: "SOS", ur: "ضرورت کے وقت" },
   ],
-  Inj: [ { k: "Stat", ur: "ابھی ایک ٹیکہ" }, { k: "IM", ur: "پٹھے میں ٹیکہ" }, { k: "IV", ur: "رگ میں ٹیکہ" }, { k: "OD", ur: "روزانہ ایک ٹیکہ" } ],
+  Inj: [ { k: "In drip", ur: "ڈرپ میں" }, { k: "IM", ur: "پٹھے میں ٹیکہ" }, { k: "IV", ur: "رگ میں ٹیکہ" } ],
+  calc: [ { k: "Oral with milk", ur: "ایک ایمپول دودھ میں ملا کر پی لیں" }, { k: "Weekly, oral with milk", ur: "ہفتے میں ایک بار دودھ میں ملا کر پئیں" } ],
+  Drip: [ { k: "Stat", ur: "ابھی ایک ڈرپ" }, { k: "OD", ur: "روزانہ ایک ڈرپ" } ],
+  Inf: [ { k: "Stat", ur: "ابھی ایک ڈرپ" }, { k: "BD", ur: "دن میں دو بار" }, { k: "TDS", ur: "دن میں تین بار" } ],
   Sac: [ { k: "1xOD", ur: "دن میں ایک ساشے پانی میں", n: 1 }, { k: "1xBD", ur: "صبح، شام ایک ساشے پانی میں", n: 2 } ],
 };
 // Age groups: each medicine remembers its dose separately for each group.
 const AGES = [ { k: "inf", label: "0–1 yr", max: 1 }, { k: "tod", label: "2–5 yrs", max: 5 }, { k: "kid", label: "6–12 yrs", max: 12 }, { k: "adult", label: "Adult", max: 200 } ];
 const ageGroupFor = a => { const n = parseFloat(a); return Number.isFinite(n) ? AGES.find(g => n <= g.max).k : null; };
+const doseList = m => { const it = m.id && ITEMS[m.id]; return (it && it.doses ? DOSES[it.doses] : DOSES[doseKind(m.f)]) || []; };
 const doseKind = f => (f === "T" || f === "C") ? "pill" : (DOSES[f] ? f : "pill");
 const DAYS = [3, 5, 7, 10, 15, 30];
 const FOOD = [ { k: "before", en: "before meal", ur: "کھانے سے پہلے", label: "Before meal" }, { k: "after", en: "after meal", ur: "کھانے کے بعد", label: "After meal" } ];
@@ -469,7 +493,9 @@ const FOLLOW = [ { d: 3, label: "3 days" }, { d: 5, label: "5 days" }, { d: 7, l
 const ITEMS = {};
 PROCS.forEach(it => { ITEMS[it.id] = it; });
 TABS.forEach(t => t.items.forEach(it => { if (it.f == null) it.f = t.key; it.tab = t.key; ITEMS[it.id] = it; }));
-const lineAmount = (it, q) => it.perTab ? Math.round(it.perTab.pack / it.perTab.size * q) : it.price * q;
+DRIPS.forEach(it => { ITEMS[it.id] = it; });
+const priceOf = it => it.price != null ? it.price : (prices[it.id] != null ? prices[it.id] : null);
+const lineAmount = (it, q) => it.perTab ? Math.round(it.perTab.pack / it.perTab.size * q) : (priceOf(it) || 0) * q;
 const fmt = n => n.toLocaleString("en-US");
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -496,6 +522,7 @@ let opd = store.get("cb-opd", null);
 if (!opd || opd.day !== todayKey()) opd = { day: todayKey(), n: 1 };
 let settings = Object.assign({ clinic: "", doctor: "", width: "58", top: 45, left: 12, right: 12, pad: "A5" }, store.get("cb-settings", {}));
 let memory = store.get("cb-dose-memory", {});
+let prices = store.get("cb-prices", {});
 // doses saved before age groups existed count as adult doses
 Object.keys(memory).forEach(k => { if (!k.includes("|")) { if (!memory[k + "|adult"]) memory[k + "|adult"] = memory[k]; delete memory[k]; } });
 let activeTab = store.get("cb-tab", "T");
@@ -514,16 +541,17 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") sheets.forEa
 
 const numSheet = document.getElementById("num"), numIn = document.getElementById("num-in");
 let numDone = null;
-function askNumber({ title, note, quick = [], value, onPick }) {
+function askNumber({ title, note, quick = [], value, onPick, noInput }) {
   document.getElementById("num-title").textContent = title;
   const n = document.getElementById("num-note"); n.textContent = note || ""; n.hidden = !note;
   const q = document.getElementById("num-quick");
-  q.replaceChildren(...quick.map(o => { const b = el("button", "mini", o.label); b.type = "button"; b.addEventListener("click", () => { onPick(o.value); numSheet.hidden = true; }); return b; }));
+  q.replaceChildren(...quick.map(o => { const b = el("button", "mini", o.label); b.type = "button"; b.addEventListener("click", () => { numSheet.hidden = true; onPick(o.value); }); return b; }));
   q.hidden = quick.length === 0;
   numIn.value = value != null ? value : ""; numDone = onPick; numSheet.hidden = false;
+  numIn.hidden = !!noInput; document.getElementById("num-ok").hidden = !!noInput;
   if (!quick.length) setTimeout(() => numIn.focus(), 50);
 }
-function numSubmit() { const v = parseInt(numIn.value, 10); if (!Number.isFinite(v) || v < 0) { numIn.focus(); return; } numDone && numDone(v); numSheet.hidden = true; }
+function numSubmit() { const v = parseInt(numIn.value, 10); if (!Number.isFinite(v) || v < 0) { numIn.focus(); return; } const f = numDone; numSheet.hidden = true; f && f(v); }
 document.getElementById("num-ok").addEventListener("click", numSubmit);
 document.getElementById("num-cancel").addEventListener("click", () => { numSheet.hidden = true; });
 numIn.addEventListener("keydown", e => { if (e.key === "Enter") numSubmit(); });
@@ -543,7 +571,9 @@ const procBox = document.getElementById("procs"), procBtns = {};
 PROCS.forEach(p => {
   const b = el("button", "btn", p.name); b.type = "button"; b.append(el("small", null, String(p.price)));
   const badge = el("span", "badge"); badge.hidden = true; b.append(badge);
-  b.addEventListener("click", () => { S.qty[p.id] = (S.qty[p.id] || 0) + 1; update(); });
+  if (p.pick) b.addEventListener("click", () => askNumber({ title: "Which drip?", noInput: true,
+    quick: DRIPS.map(d => ({ label: d.f === "Inf" ? d.name + " infusion" : d.name, value: d.id })), onPick: id => addMed(ITEMS[id]) }));
+  else b.addEventListener("click", () => { S.qty[p.id] = (S.qty[p.id] || 0) + 1; update(); });
   procBox.append(b); procBtns[p.id] = { b, badge };
 });
 const otherBtn = el("button", "btn", "Other"); otherBtn.type = "button"; otherBtn.append(el("small", null, "Rs"));
@@ -575,7 +605,7 @@ function setAgeGroup(k) {
 
 // ===== Medicines =====
 function medLines(m) {
-  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
+  const d = doseList(m).find(x => x.k === m.dose);
   const food = FOOD.find(x => x.k === m.food);
   const label = (FORM_LABEL[m.f] ? FORM_LABEL[m.f] + " " : "") + m.name;
   const en = [label, m.dose || "", m.days ? `× ${m.days} days` : "", food ? `(${food.en})` : ""].filter(Boolean).join("  ");
@@ -584,22 +614,27 @@ function medLines(m) {
 }
 function medQty(m) {
   const it = ITEMS[m.id]; if (!it || !it.perTab) return 1;
-  const d = (DOSES[doseKind(m.f)] || []).find(x => x.k === m.dose);
+  const d = doseList(m).find(x => x.k === m.dose);
   if (d && d.n && m.days) return d.n * m.days;
   return it.perTab.quick[0];
 }
-const priced = m => !!(m.id && ITEMS[m.id] && (ITEMS[m.id].price != null || ITEMS[m.id].perTab));
+const priced = m => !!(m.id && ITEMS[m.id] && (priceOf(ITEMS[m.id]) != null || ITEMS[m.id].perTab));
 const memKey = m => (m.id || ("x:" + m.name.toLowerCase())) + "|" + S.ageGroup;
 const shortDose = m => [m.dose, m.days ? m.days + "d" : ""].filter(Boolean).join(" ");
 
 function addMed(it, customName) {
   const existing = it && S.meds.find(m => m.id === it.id);
   if (existing) { openDose(existing); return; }
+  if (it && !it.perTab && priceOf(it) == null) {
+    askNumber({ title: `Price of ${it.name}?`, note: "Asked only once. The app remembers it.", onPick: v => { prices[it.id] = v; store.set("cb-prices", prices); addMed(it); } });
+    return;
+  }
   const m = it ? { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true }
                : { uid: uidSeq++, id: null, name: customName, f: "T", dose: null, days: null, food: null, given: false };
   const mem = memory[memKey(m)];
   S.meds.push(m);
   if (mem) { Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food, f: mem.f || m.f }); update(); toast(`${m.name} ${shortDose(m)} added`); }
+  else if (m.f === "Drip" || m.f === "Inf") { update(); toast(`${FORM_LABEL[m.f]} ${m.name} added`); }
   else { update(); openDose(m, true); }
 }
 
@@ -621,13 +656,12 @@ function renderDose() {
   const formBox = document.getElementById("dose-form");
   formBox.hidden = !!m.id;
   if (!m.id) chipRow(formBox, ["T", "C", "S", "Inj"], m.f, v => set("f", v || "T"), k => FORM_LABEL[k]);
-  chipRow(document.getElementById("dose-dose"), DOSES[doseKind(m.f)], m.dose, v => set("dose", v), o => o.k);
-  const noDays = m.f === "Inj";
-  document.getElementById("dose-days").hidden = noDays; document.getElementById("dose-food").hidden = noDays;
-  if (!noDays) {
-    chipRow(document.getElementById("dose-days"), DAYS, m.days, v => set("days", v), d => d + " days");
-    chipRow(document.getElementById("dose-food"), FOOD, m.food, v => set("food", v), o => o.label);
-  }
+  chipRow(document.getElementById("dose-dose"), doseList(m), m.dose, v => set("dose", v), o => o.k);
+  const it0 = m.id && ITEMS[m.id];
+  const noDays = !!(it0 && it0.doses), noFood = noDays || ["Inj", "Drip", "Inf"].includes(m.f);
+  document.getElementById("dose-days").hidden = noDays; document.getElementById("dose-food").hidden = noFood;
+  if (!noDays) chipRow(document.getElementById("dose-days"), DAYS, m.days, v => set("days", v), d => d + " days");
+  if (!noFood) chipRow(document.getElementById("dose-food"), FOOD, m.food, v => set("food", v), o => o.label);
   document.getElementById("dose-ur").textContent = medLines(m).ur;
   const g = document.getElementById("dose-given");
   g.hidden = !priced(m);
@@ -680,11 +714,15 @@ addCustom.addEventListener("click", () => { const n = search.value.trim(); if (!
 function billLines() {
   const out = [];
   if (S.fee != null) out.push({ name: S.fee === 0 ? "Fee free" : "Fee", amt: S.fee, remove: () => { S.fee = null; } });
-  PROCS.forEach(p => { const q = S.qty[p.id]; if (q) out.push({ name: p.name + (q > 1 ? ` ×${q}` : ""), amt: p.price * q, remove: () => { if (--S.qty[p.id] <= 0) delete S.qty[p.id]; } }); });
+  PROCS.forEach(p => { const q = !p.pick && S.qty[p.id]; if (q) out.push({ name: p.name + (q > 1 ? ` ×${q}` : ""), amt: p.price * q, remove: () => { if (--S.qty[p.id] <= 0) delete S.qty[p.id]; } }); });
   S.extras.forEach((v, i) => out.push({ name: "Other", amt: v, remove: () => S.extras.splice(i, 1) }));
   return out;
 }
-function medBillAmount(m) { return priced(m) && m.given ? lineAmount(ITEMS[m.id], medQty(m)) : 0; }
+function medBillAmount(m) {
+  if (!priced(m) || !m.given) return 0;
+  if (m.dose === "In drip" && ITEMS[m.id].inDripFree) return 0;  // already part of the drip price
+  return lineAmount(ITEMS[m.id], medQty(m));
+}
 function totals() {
   const gross = billLines().reduce((s, l) => s + l.amt, 0) + S.meds.reduce((s, m) => s + medBillAmount(m), 0);
   const off = Math.round(gross * S.disc / 100);
@@ -702,7 +740,7 @@ function update() {
   feeBtns.forEach(({ v, b }) => b.classList.toggle("on", S.fee === v));
   const custom = S.fee != null && !FEES.includes(S.fee);
   feeOther.classList.toggle("on", custom); feeOther.firstChild.textContent = custom ? String(S.fee) : "Other";
-  PROCS.forEach(p => { const q = S.qty[p.id] || 0, r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
+  PROCS.forEach(p => { const q = p.pick ? S.meds.filter(m => m.f === "Drip" || m.f === "Inf").length : (S.qty[p.id] || 0), r = procBtns[p.id]; r.b.classList.toggle("on", q > 0); r.badge.hidden = q < 2; r.badge.textContent = "×" + q; });
   otherBtn.classList.toggle("on", S.extras.length > 0); otherBadge.hidden = S.extras.length < 2; otherBadge.textContent = "×" + S.extras.length;
   discBtns.forEach(({ d, b }) => b.classList.toggle("on", S.disc === d && d > 0));
 
@@ -710,7 +748,7 @@ function update() {
     const m = S.meds.find(x => x.id === it.id);
     tile.classList.toggle("on", !!m); badge.hidden = !m;
     const mem = memory[it.id + "|" + S.ageGroup];
-    sub.textContent = m ? (shortDose(m) || "tap to set dose") : (mem ? shortDose(mem) : (it.perTab ? `${it.perTab.pack}/${it.perTab.size}` : String(it.price)));
+    sub.textContent = m ? (shortDose(m) || "tap to set dose") : (mem ? shortDose(mem) : (it.perTab ? `${it.perTab.pack}/${it.perTab.size}` : (priceOf(it) != null ? String(priceOf(it)) : "set price")));
   });
 
   const { gross, off, net } = totals();
@@ -722,7 +760,7 @@ function update() {
   else discLine.hidden = true;
 
   const chips = billLines().map(l => ({ cls: "pick", name: l.name, amt: l.amt, onTap: null, remove: l.remove }));
-  S.meds.forEach(m => chips.push({ cls: "pick rx", name: `${m.name}${shortDose(m) ? " " + shortDose(m) : " ?"}`, amt: medBillAmount(m) || null,
+  S.meds.forEach(m => chips.push({ cls: "pick rx", name: `${m.name}${shortDose(m) ? " " + shortDose(m) : (m.f === "Drip" || m.f === "Inf" ? "" : " ?")}`, amt: medBillAmount(m) || null,
     onTap: () => openDose(m), remove: () => { S.meds = S.meds.filter(o => o !== m); } }));
   if (!chips.length) pickedEl.replaceChildren(el("span", "hint", "Tap fee, injection or medicine. Total shows at the top."));
   else pickedEl.replaceChildren(...chips.map(c => {
@@ -822,7 +860,7 @@ function rxDoc() {
   return {
     no: opd.n, date: fmtDate(new Date()), name: S.name.trim(), age: S.age.trim() || (S.ageGroup !== "adult" ? AGES.find(g => g.k === S.ageGroup).label : ""), complaint: S.complaints.concat(S.complaintText.trim() ? [S.complaintText.trim()] : []).join(", "),
     meds: S.meds.map(medLines),
-    procs: PROCS.filter(p => S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
+    procs: PROCS.filter(p => !p.pick && S.qty[p.id]).map(p => p.name === "Inj" ? "Injection" : p.name),
     advice: effectiveAdvice(),
     follow: follow ? { en: "Follow-up: " + fmtDate(follow), ur: `${urNum(S.follow)} دن بعد دوبارہ چیک اپ کروائیں` } : null,
     code: net > 0 ? billCode(net) : "",
