@@ -141,6 +141,7 @@ button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none;
 .actions .alt { background: var(--card); color: var(--ink); border: 2px solid var(--line); }
 
 /* Sheets */
+#num { z-index: 12; }
 .scrim { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / 0.45); display: flex; align-items: flex-end; justify-content: center; }
 .sheet {
   width: 100%; max-width: 640px; background: var(--card); border-radius: 20px 20px 0 0; max-height: 92vh; overflow-y: auto;
@@ -335,12 +336,15 @@ const PROCS = [
 ];
 // Drips and infusions (Drip button). Prices of null are asked once and remembered.
 const DRIPS = [
-  { id: "d-ns", name: "NS", f: "Drip", price: 850 },
-  { id: "d-ds", name: "DS", f: "Drip", price: 850 },
-  { id: "d-dw", name: "DW", f: "Drip", price: 850 },
-  { id: "d-acetosol", name: "Acetosol", f: "Inf", price: null },
-  { id: "d-flagyl", name: "Flagyl", f: "Inf", price: null },
+  { id: "d-ns", name: "NS 500ml", f: "Drip" },
+  { id: "d-ns100", name: "NS 100ml", f: "Drip" },
+  { id: "d-ds", name: "DS 500ml", f: "Drip" },
+  { id: "d-dw", name: "DW 500ml", f: "Drip" },
+  { id: "d-rl", name: "Ringer's Lactate 500ml", f: "Drip" },
+  { id: "d-acetosol", name: "Acetosol", f: "Inf" },
+  { id: "d-flagyl", name: "Flagyl", f: "Inf" },
 ];
+const DRIP_PRICES = [500, 700, 850, 1000, 1200, 1500];
 const DISCOUNTS = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 const TABS = [
   { key: "T", title: "Tablets", items: [
@@ -411,6 +415,7 @@ const TABS = [
     { id: "i-murfyplex", name: "Murfyplex", price: 150, inDripFree: true },
     { id: "i-mbm", name: "MBM", price: 150 },
     { id: "i-ramadiclo", name: "Rama Diclo", price: 150 },
+    { id: "i-zedron", name: "Zedron", price: 150 },
     { id: "i-oxidil250", name: "Oxidil 250mg", price: null },
     { id: "i-oxidil500", name: "Oxidil 500mg", price: null },
     { id: "i-oxidil1g", name: "Oxidil 1g", price: null },
@@ -572,7 +577,8 @@ PROCS.forEach(p => {
   const b = el("button", "btn", p.name); b.type = "button"; b.append(el("small", null, String(p.price)));
   const badge = el("span", "badge"); badge.hidden = true; b.append(badge);
   if (p.pick) b.addEventListener("click", () => askNumber({ title: "Which drip?", noInput: true,
-    quick: DRIPS.map(d => ({ label: d.f === "Inf" ? d.name + " infusion" : d.name, value: d.id })), onPick: id => addMed(ITEMS[id]) }));
+    quick: DRIPS.map(d => ({ label: d.f === "Inf" ? d.name + " infusion" : d.name, value: d.id })),
+    onPick: id => askDripPrice(ITEMS[id], v => addMed(ITEMS[id], null, v)) }));
   else b.addEventListener("click", () => { S.qty[p.id] = (S.qty[p.id] || 0) + 1; update(); });
   procBox.append(b); procBtns[p.id] = { b, badge };
 });
@@ -587,6 +593,15 @@ const discBtns = DISCOUNTS.map(d => {
   b.addEventListener("click", () => { S.disc = d; S.override = null; update(); });
   discBox.append(b); return { d, b };
 });
+
+// Drip price: chosen by the doctor each time; injections put in the drip are covered by it.
+function askDripPrice(it, done, current) {
+  const last = prices["drip-last-" + it.id];
+  const opts = [...new Set([last, ...DRIP_PRICES].filter(v => v != null))];
+  askNumber({ title: `${it.name}: price?`, note: "Injections put in this drip are included.", value: current != null ? current : "",
+    quick: opts.map(v => ({ label: fmt(v), value: v })),
+    onPick: v => { prices["drip-last-" + it.id] = v; store.set("cb-prices", prices); done(v); } });
+}
 
 // ===== Age =====
 function setAgeGroup(k) {
@@ -618,20 +633,22 @@ function medQty(m) {
   if (d && d.n && m.days) return d.n * m.days;
   return it.perTab.quick[0];
 }
-const priced = m => !!(m.id && ITEMS[m.id] && (priceOf(ITEMS[m.id]) != null || ITEMS[m.id].perTab));
+const priced = m => m.price != null || !!(m.id && ITEMS[m.id] && (priceOf(ITEMS[m.id]) != null || ITEMS[m.id].perTab));
 const memKey = m => (m.id || ("x:" + m.name.toLowerCase())) + "|" + S.ageGroup;
 const shortDose = m => [m.dose, m.days ? m.days + "d" : ""].filter(Boolean).join(" ");
 
-function addMed(it, customName) {
+function addMed(it, customName, chosenPrice) {
   const existing = it && S.meds.find(m => m.id === it.id);
   if (existing) { openDose(existing); return; }
-  if (it && !it.perTab && priceOf(it) == null) {
+  const isDrip = it && (it.f === "Drip" || it.f === "Inf");
+  if (it && !isDrip && !it.perTab && priceOf(it) == null) {
     askNumber({ title: `Price of ${it.name}?`, note: "Asked only once. The app remembers it.", onPick: v => { prices[it.id] = v; store.set("cb-prices", prices); addMed(it); } });
     return;
   }
   const m = it ? { uid: uidSeq++, id: it.id, name: it.name, f: it.f, dose: null, days: null, food: null, given: true }
                : { uid: uidSeq++, id: null, name: customName, f: "T", dose: null, days: null, food: null, given: false };
   const mem = memory[memKey(m)];
+  if (chosenPrice != null) m.price = chosenPrice;
   S.meds.push(m);
   if (mem) { Object.assign(m, { dose: mem.dose, days: mem.days, food: mem.food, f: mem.f || m.f }); update(); toast(`${m.name} ${shortDose(m)} added`); }
   else if (m.f === "Drip" || m.f === "Inf") { update(); toast(`${FORM_LABEL[m.f]} ${m.name} added`); }
@@ -665,7 +682,13 @@ function renderDose() {
   document.getElementById("dose-ur").textContent = medLines(m).ur;
   const g = document.getElementById("dose-given");
   g.hidden = !priced(m);
-  if (priced(m)) {
+  if (m.f === "Drip" || m.f === "Inf") {
+    const b = el("button", "mini on", `Price Rs ${fmt(m.price || 0)} · change`); b.type = "button";
+    b.addEventListener("click", () => askDripPrice(ITEMS[m.id], v => { m.price = v; renderDose(); update(); }, m.price));
+    g.replaceChildren(b);
+  } else if (m.dose === "In drip") {
+    g.replaceChildren(el("span", "mini", "In drip: included in drip price"));
+  } else if (priced(m)) {
     const it = ITEMS[m.id], q = medQty(m);
     chipRow(g, [{ k: true, l: `Given · Rs ${fmt(lineAmount(it, q))}${it.perTab ? ` (${q} tabs)` : ""}` }, { k: false, l: "Not given (no charge)" }], m.given, v => set("given", v === null ? m.given : v), o => o.l);
   }
@@ -720,7 +743,8 @@ function billLines() {
 }
 function medBillAmount(m) {
   if (!priced(m) || !m.given) return 0;
-  if (m.dose === "In drip" && ITEMS[m.id].inDripFree) return 0;  // already part of the drip price
+  if (m.price != null) return m.price;
+  if (m.dose === "In drip") return 0;  // covered by the drip price
   return lineAmount(ITEMS[m.id], medQty(m));
 }
 function totals() {
